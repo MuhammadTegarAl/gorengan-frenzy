@@ -141,10 +141,21 @@ canvas {
   letter-spacing: 0;
 }
 
+.overlay.game-over h2 {
+  max-width: 92%;
+  font-size: clamp(1.35rem, 3.1vw, 2.35rem);
+  line-height: 1.08;
+}
+
 .overlay p {
   max-width: 28rem;
   margin-bottom: 0;
   color: var(--muted);
+}
+
+.overlay.game-over p {
+  max-width: min(90%, 34rem);
+  font-size: clamp(0.88rem, 1.8vw, 1rem);
 }
 
 .game-over-video {
@@ -178,8 +189,9 @@ canvas {
   border: 1px solid rgba(244, 178, 59, 0.62);
   border-radius: 8px;
   padding: 10px 12px;
-  color: #20170a;
-  background: #f4b23b;
+  color: var(--ink);
+  background: rgba(36, 33, 29, 0.72);
+  backdrop-filter: blur(4px);
   box-shadow: 0 14px 34px rgba(0, 0, 0, 0.34);
   font-weight: 900;
   text-align: center;
@@ -494,7 +506,7 @@ button:hover,
 
   .controls {
     display: grid;
-    grid-template-columns: repeat(2, minmax(0, 1fr));
+    grid-template-columns: repeat(3, minmax(0, 1fr));
   }
 
   .leaderboard-grid {

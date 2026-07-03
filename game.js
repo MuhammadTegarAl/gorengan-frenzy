@@ -11,6 +11,7 @@ const gameOverVideoSource = document.querySelector("#gameOverVideoSource");
 const bonusToast = document.querySelector("#bonusToast");
 const startButton = document.querySelector("#startButton");
 const pauseButton = document.querySelector("#pauseButton");
+const soundButton = document.querySelector("#soundButton");
 const resetButton = document.querySelector("#resetButton");
 const headUpload = document.querySelector("#headUpload");
 const difficultySelect = document.querySelector("#difficultySelect");
@@ -88,8 +89,13 @@ let touchStart = null;
 let eatFlashUntil = 0;
 let slowUntil = 0;
 let toastTimeout = null;
+let toastInterval = null;
 let playerName = localStorage.getItem("hasan-frenzy-player") || "";
 let eatenCounts = createEmptyEatenCounts();
+let audioContext = null;
+let soundEnabled = localStorage.getItem("hasan-frenzy-sound") === "on";
+let musicTimer = null;
+let musicStep = 0;
 
 bestEl.textContent = best;
 
@@ -150,6 +156,7 @@ function showOverlay(title, text, buttonText, options = {}) {
   overlayTitle.textContent = title;
   overlayText.textContent = text;
   startButton.textContent = buttonText;
+  overlay.classList.toggle("game-over", Boolean(options.video));
   if (options.video) {
     showGameOverVideo(Boolean(options.podium));
   } else {
@@ -165,6 +172,8 @@ function hideOverlay() {
 
 function startGame() {
   if (!ensurePlayerName()) return;
+  ensureAudio();
+  if (soundEnabled) startCircusMusic();
   if (gameOver) resetGame();
   running = true;
   paused = false;
@@ -179,9 +188,11 @@ function togglePause() {
   paused = !paused;
   pauseButton.textContent = paused ? "Resume" : "Pause";
   if (paused) {
+    stopCircusMusic();
     showOverlay("Jeda dulu.", "Tekan Resume atau Space buat lanjut.", "Resume");
   } else {
     hideOverlay();
+    if (soundEnabled) startCircusMusic();
     requestAnimationFrame(loop);
   }
 }
@@ -218,9 +229,11 @@ function update() {
       score += specialFood.score;
       slowUntil = Date.now() + specialFood.slowMs;
       showBonusToast("selamat kamu makan sate usus punya pak hedy buat makan siang");
+      playMunchSound(true);
     } else {
       eatenCounts.regular[food.kind] += 1;
       score += 10;
+      playMunchSound(false);
     }
     scoreEl.textContent = score;
     best = Math.max(best, score);
@@ -248,6 +261,8 @@ function wrapPosition(point) {
 function endGame() {
   running = false;
   gameOver = true;
+  stopCircusMusic();
+  playGameOverSound(false);
   draw();
   handleGameOver(score);
   showOverlay(
@@ -282,6 +297,7 @@ async function handleGameOver(finalScore) {
     overlayTitle.textContent = "heemm hemm, beuhh gorengan nih. selamat yee posisi 1 sementara";
     overlayText.textContent = buildGameOverMessage(finalScore);
     showGameOverVideo(true);
+    playGameOverSound(true);
   }
 }
 
@@ -303,16 +319,95 @@ function hideGameOverVideo() {
 }
 
 function showBonusToast(message) {
-  bonusToast.textContent = message;
+  updateBonusToast(message);
   bonusToast.classList.remove("hidden");
   if (toastTimeout) clearTimeout(toastTimeout);
-  toastTimeout = setTimeout(hideBonusToast, 3200);
+  if (toastInterval) clearInterval(toastInterval);
+  toastInterval = setInterval(() => updateBonusToast(message), 250);
+  toastTimeout = setTimeout(hideBonusToast, specialFood.slowMs);
+}
+
+function updateBonusToast(message) {
+  const remaining = Math.max(0, Math.ceil((slowUntil - Date.now()) / 1000));
+  bonusToast.textContent = `${message}. Speed melambat 50% selama ${remaining}s.`;
 }
 
 function hideBonusToast() {
   if (toastTimeout) clearTimeout(toastTimeout);
+  if (toastInterval) clearInterval(toastInterval);
   toastTimeout = null;
+  toastInterval = null;
   bonusToast.classList.add("hidden");
+}
+
+function ensureAudio() {
+  if (!audioContext) {
+    audioContext = new (window.AudioContext || window.webkitAudioContext)();
+  }
+  if (audioContext.state === "suspended") audioContext.resume();
+}
+
+function setSoundEnabled(enabled) {
+  soundEnabled = enabled;
+  localStorage.setItem("hasan-frenzy-sound", enabled ? "on" : "off");
+  soundButton.textContent = enabled ? "Sound on" : "Sound off";
+  if (!enabled) stopCircusMusic();
+  else if (running && !paused && !gameOver) {
+    ensureAudio();
+    startCircusMusic();
+  }
+}
+
+function playTone(frequency, duration, options = {}) {
+  if (!soundEnabled) return;
+  ensureAudio();
+  const now = audioContext.currentTime + (options.delay || 0);
+  const oscillator = audioContext.createOscillator();
+  const gain = audioContext.createGain();
+  oscillator.type = options.type || "sine";
+  oscillator.frequency.setValueAtTime(frequency, now);
+  if (options.to) oscillator.frequency.exponentialRampToValueAtTime(options.to, now + duration);
+  gain.gain.setValueAtTime(0.0001, now);
+  gain.gain.exponentialRampToValueAtTime(options.volume || 0.12, now + 0.015);
+  gain.gain.exponentialRampToValueAtTime(0.0001, now + duration);
+  oscillator.connect(gain).connect(audioContext.destination);
+  oscillator.start(now);
+  oscillator.stop(now + duration + 0.02);
+}
+
+function startCircusMusic() {
+  if (musicTimer || !soundEnabled) return;
+  ensureAudio();
+  const melody = [523.25, 659.25, 783.99, 659.25, 587.33, 698.46, 880, 698.46];
+  musicTimer = setInterval(() => {
+    const note = melody[musicStep % melody.length];
+    playTone(note, 0.16, { type: "square", volume: 0.035 });
+    if (musicStep % 2 === 0) playTone(note / 2, 0.18, { type: "triangle", volume: 0.025 });
+    musicStep += 1;
+  }, 230);
+}
+
+function stopCircusMusic() {
+  if (!musicTimer) return;
+  clearInterval(musicTimer);
+  musicTimer = null;
+}
+
+function playMunchSound(isSpecial) {
+  playTone(isSpecial ? 220 : 180, 0.08, { type: "sawtooth", volume: isSpecial ? 0.16 : 0.1, to: isSpecial ? 440 : 90 });
+  playTone(isSpecial ? 660 : 260, 0.05, { type: "square", volume: isSpecial ? 0.08 : 0.05, delay: 0.04 });
+}
+
+function playGameOverSound(isWinner) {
+  if (isWinner) {
+    [523.25, 659.25, 783.99, 1046.5].forEach((note, index) => {
+      playTone(note, 0.18, { type: "triangle", volume: 0.12, delay: index * 0.12 });
+    });
+    return;
+  }
+
+  playTone(392, 0.55, { type: "sawtooth", volume: 0.12, to: 130.81 });
+  playTone(196, 0.6, { type: "triangle", volume: 0.08, delay: 0.08, to: 98 });
 }
 
 function getSupabaseConfig() {
@@ -755,6 +850,10 @@ difficultySelect.addEventListener("change", (event) => {
   loadLeaderboard();
 });
 
+soundButton.addEventListener("click", () => {
+  setSoundEnabled(!soundEnabled);
+});
+
 playerForm.addEventListener("submit", (event) => {
   event.preventDefault();
   setPlayerName(playerNameInput.value, initialDifficultySelect.value);
@@ -787,6 +886,7 @@ resetButton.addEventListener("click", resetGame);
 
 resetGame();
 difficultySelect.value = currentDifficulty;
+setSoundEnabled(soundEnabled);
 playerNameDisplay.textContent = playerName || "-";
 loadLeaderboard();
 ensurePlayerName();

@@ -5,6 +5,13 @@
     <meta name="viewport" content="width=device-width, initial-scale=1">
     <title>Hasan Frenzy</title>
     <link rel="stylesheet" href="./styles.css">
+    <script async src="https://www.googletagmanager.com/gtag/js?id=G-9JZZDE8ZGD"></script>
+    <script>
+      window.dataLayer = window.dataLayer || [];
+      function gtag(){dataLayer.push(arguments);}
+      gtag('js', new Date());
+      gtag('config', 'G-9JZZDE8ZGD');
+    </script>
   </head>
   <body>
     <main class="shell">
@@ -50,6 +57,7 @@
 
         <div class="controls">
           <button id="pauseButton" type="button">Pause</button>
+          <button id="soundButton" type="button">Sound off</button>
           <label class="difficulty">
             <span>Level</span>
             <select id="difficultySelect" aria-label="Pilih level">
@@ -124,6 +132,6 @@
       </div>
     </main>
     <script src="./supabase-config.js?v=1"></script>
-    <script src="./game.js?v=9"></script>
+    <script src="./game.js?v=10"></script>
   </body>
 </html>
