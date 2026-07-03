@@ -181,21 +181,16 @@ canvas {
 }
 
 .bonus-toast {
-  position: absolute;
-  left: 50%;
-  top: 14px;
-  z-index: 3;
-  width: min(88%, 520px);
+  width: min(100%, 760px);
+  min-height: 42px;
+  margin: -2px auto 0;
   border: 1px solid rgba(244, 178, 59, 0.62);
   border-radius: 8px;
   padding: 10px 12px;
   color: var(--ink);
-  background: rgba(36, 33, 29, 0.72);
-  backdrop-filter: blur(4px);
-  box-shadow: 0 14px 34px rgba(0, 0, 0, 0.34);
+  background: rgba(36, 33, 29, 0.88);
   font-weight: 900;
   text-align: center;
-  transform: translateX(-50%);
 }
 
 .bonus-toast.hidden {

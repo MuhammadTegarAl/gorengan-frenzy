@@ -4,6 +4,8 @@
     <meta charset="utf-8">
     <meta name="viewport" content="width=device-width, initial-scale=1">
     <title>Hasan Frenzy</title>
+    <link rel="icon" type="image/png" href="./assets/favicon.png">
+    <link rel="apple-touch-icon" href="./assets/favicon.png">
     <link rel="stylesheet" href="./styles.css">
     <script async src="https://www.googletagmanager.com/gtag/js?id=G-9JZZDE8ZGD"></script>
     <script>
@@ -33,6 +35,8 @@
           </div>
         </div>
 
+        <div id="bonusToast" class="bonus-toast hidden">Power-up aktif.</div>
+
         <div class="board-wrap">
           <canvas id="game" width="720" height="720" aria-label="Hasan Frenzy board"></canvas>
           <div id="overlay" class="overlay">
@@ -45,7 +49,6 @@
             <p id="overlayText">Tekan Start atau Space buat mulai ngejar gorengan.</p>
             <button id="startButton" class="primary">Start</button>
           </div>
-          <div id="bonusToast" class="bonus-toast hidden">selamat kamu makan sate usus punya pak hedy buat makan siang</div>
         </div>
 
         <div class="dpad" aria-label="Directional controls">
@@ -65,10 +68,6 @@
               <option value="medium" selected>Medium</option>
               <option value="hard">Hard</option>
             </select>
-          </label>
-          <label class="upload">
-            <input id="headUpload" type="file" accept="image/*">
-            Ganti kepala
           </label>
           <button id="resetButton" type="button">Reset</button>
         </div>
@@ -132,6 +131,6 @@
       </div>
     </main>
     <script src="./supabase-config.js?v=1"></script>
-    <script src="./game.js?v=10"></script>
+    <script src="./game.js?v=11"></script>
   </body>
 </html>

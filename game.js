@@ -13,7 +13,6 @@ const startButton = document.querySelector("#startButton");
 const pauseButton = document.querySelector("#pauseButton");
 const soundButton = document.querySelector("#soundButton");
 const resetButton = document.querySelector("#resetButton");
-const headUpload = document.querySelector("#headUpload");
 const difficultySelect = document.querySelector("#difficultySelect");
 const playerModal = document.querySelector("#playerModal");
 const playerForm = document.querySelector("#playerForm");
@@ -30,6 +29,7 @@ const syncStatus = document.querySelector("#syncStatus");
 
 const grid = 18;
 const cell = canvas.width / grid;
+const soundStorageKey = "hasan-frenzy-sound-v2";
 const difficultyConfig = {
   easy: { label: "Easy", stepMs: 166, minStepMs: 102, speedUp: 2 },
   medium: { label: "Medium", stepMs: 132, minStepMs: 76, speedUp: 3 },
@@ -48,7 +48,16 @@ const specialFood = {
   src: "./assets/satu-usus-pak-hedy.png",
   score: 20,
   slowMs: 10000,
-  spawnChance: 0.12
+  lifeMs: 10000,
+  spawnChance: 0.055
+};
+const badFood = {
+  name: "Chiki Kadaluwarsa Ivan",
+  src: "./assets/chiki-kadaluwarsa-ivan.png",
+  score: 0,
+  fastMs: 5000,
+  lifeMs: 15000,
+  spawnChance: 0.075
 };
 const foodNames = [
   "Tahu isi",
@@ -69,12 +78,13 @@ const headSources = {
 
 const foods = foodSources.map(loadImage);
 const specialFoodImage = loadImage(specialFood.src);
+const badFoodImage = loadImage(badFood.src);
 const heads = Object.fromEntries(Object.entries(headSources).map(([key, src]) => [key, loadImage(src)]));
 
 let snake;
 let direction;
 let queuedDirection;
-let food;
+let activeFoods;
 let score;
 const savedDifficulty = localStorage.getItem("hasan-frenzy-level");
 let currentDifficulty = difficultyConfig[savedDifficulty] ? savedDifficulty : "medium";
@@ -84,16 +94,16 @@ let paused = false;
 let gameOver = false;
 let lastTime = 0;
 let stepMs = difficultyConfig.medium.stepMs;
-let customHeadImage = null;
 let touchStart = null;
 let eatFlashUntil = 0;
 let slowUntil = 0;
+let fastUntil = 0;
 let toastTimeout = null;
 let toastInterval = null;
 let playerName = localStorage.getItem("hasan-frenzy-player") || "";
 let eatenCounts = createEmptyEatenCounts();
 let audioContext = null;
-let soundEnabled = localStorage.getItem("hasan-frenzy-sound") === "on";
+let soundEnabled = localStorage.getItem(soundStorageKey) !== "off";
 let musicTimer = null;
 let musicStep = 0;
 
@@ -110,7 +120,8 @@ function setLocalBest(level, value) {
 function createEmptyEatenCounts() {
   return {
     regular: Array(foodSources.length).fill(0),
-    special: 0
+    special: 0,
+    bad: 0
   };
 }
 
@@ -137,12 +148,14 @@ function resetGame() {
   running = false;
   eatFlashUntil = 0;
   slowUntil = 0;
+  fastUntil = 0;
   eatenCounts = createEmptyEatenCounts();
   hideBonusToast();
   pauseButton.textContent = "Pause";
   scoreEl.textContent = score;
   bestEl.textContent = best;
-  food = spawnFood();
+  activeFoods = [];
+  refillRegularFoods();
   draw();
   hideGameOverVideo();
   showOverlay(
@@ -210,9 +223,13 @@ function loop(time) {
 
 function update() {
   direction = queuedDirection;
+  pruneExpiredFoods();
+  refillRegularFoods();
+  maybeSpawnTimedFood();
   const head = snake[0];
   const next = wrapPosition({ x: head.x + direction.x, y: head.y + direction.y });
-  const willEat = next.x === food.x && next.y === food.y;
+  const foodIndex = activeFoods.findIndex((item) => item.x === next.x && item.y === next.y);
+  const willEat = foodIndex >= 0;
   const collisionBody = willEat ? snake : snake.slice(0, -1);
 
   if (collisionBody.some((part) => part.x === next.x && part.y === next.y)) {
@@ -224,14 +241,20 @@ function update() {
 
   if (willEat) {
     const config = difficultyConfig[currentDifficulty];
-    if (food.type === "special") {
+    const eatenFood = activeFoods.splice(foodIndex, 1)[0];
+    if (eatenFood.type === "special") {
       eatenCounts.special += 1;
       score += specialFood.score;
       slowUntil = Date.now() + specialFood.slowMs;
-      showBonusToast("selamat kamu makan sate usus punya pak hedy buat makan siang");
+      showEffectToast("benefit");
+      playMunchSound(true);
+    } else if (eatenFood.type === "bad") {
+      eatenCounts.bad += 1;
+      fastUntil = Date.now() + badFood.fastMs;
+      showEffectToast("bad");
       playMunchSound(true);
     } else {
-      eatenCounts.regular[food.kind] += 1;
+      eatenCounts.regular[eatenFood.kind] += 1;
       score += 10;
       playMunchSound(false);
     }
@@ -241,14 +264,18 @@ function update() {
     setLocalBest(currentDifficulty, best);
     stepMs = Math.max(config.minStepMs, stepMs - config.speedUp);
     eatFlashUntil = Date.now() + 520;
-    food = spawnFood();
+    refillRegularFoods();
   } else {
     snake.pop();
   }
 }
 
 function currentStepMs() {
-  return Date.now() < slowUntil ? stepMs * 2 : stepMs;
+  const now = Date.now();
+  let adjusted = stepMs;
+  if (now < slowUntil) adjusted *= 2;
+  if (now < fastUntil) adjusted *= 0.5;
+  return Math.max(34, adjusted);
 }
 
 function wrapPosition(point) {
@@ -285,6 +312,9 @@ function formatEatenCounts() {
   if (eatenCounts.special > 0) {
     eaten.push({ count: eatenCounts.special, name: specialFood.name });
   }
+  if (eatenCounts.bad > 0) {
+    eaten.push({ count: eatenCounts.bad, name: badFood.name });
+  }
 
   if (!eaten.length) return "Belum sempat makan gorengan.";
 
@@ -318,18 +348,26 @@ function hideGameOverVideo() {
   gameOverVideoFrame.classList.add("hidden");
 }
 
-function showBonusToast(message) {
-  updateBonusToast(message);
+function showEffectToast(kind) {
+  updateEffectToast(kind);
   bonusToast.classList.remove("hidden");
   if (toastTimeout) clearTimeout(toastTimeout);
   if (toastInterval) clearInterval(toastInterval);
-  toastInterval = setInterval(() => updateBonusToast(message), 250);
-  toastTimeout = setTimeout(hideBonusToast, specialFood.slowMs);
+  const duration = kind === "bad" ? badFood.fastMs : specialFood.slowMs;
+  toastInterval = setInterval(() => updateEffectToast(kind), 250);
+  toastTimeout = setTimeout(hideBonusToast, duration);
 }
 
-function updateBonusToast(message) {
-  const remaining = Math.max(0, Math.ceil((slowUntil - Date.now()) / 1000));
-  bonusToast.textContent = `${message}. Speed melambat 50% selama ${remaining}s.`;
+function updateEffectToast(kind) {
+  const now = Date.now();
+  if (kind === "bad") {
+    const remaining = Math.max(0, Math.ceil((fastUntil - now) / 1000));
+    bonusToast.textContent = `Chiki Kadaluwarsa Ivan kemakan. Hasan jadi ngebut 50% selama ${remaining}s. Tahan arah, jangan panik.`;
+    return;
+  }
+
+  const remaining = Math.max(0, Math.ceil((slowUntil - now) / 1000));
+  bonusToast.textContent = `Sate Usus Pak Hedy aman. Speed Hasan melambat 50% selama ${remaining}s, jadi lebih gampang belok.`;
 }
 
 function hideBonusToast() {
@@ -349,7 +387,7 @@ function ensureAudio() {
 
 function setSoundEnabled(enabled) {
   soundEnabled = enabled;
-  localStorage.setItem("hasan-frenzy-sound", enabled ? "on" : "off");
+  localStorage.setItem(soundStorageKey, enabled ? "on" : "off");
   soundButton.textContent = enabled ? "Sound on" : "Sound off";
   if (!enabled) stopCircusMusic();
   else if (running && !paused && !gameOver) {
@@ -583,18 +621,50 @@ function setPlayerName(value, level = currentDifficulty) {
   return true;
 }
 
-function spawnFood() {
+function desiredRegularFoodCount() {
+  return Math.min(4, 2 + Math.floor(score / 70));
+}
+
+function refillRegularFoods() {
+  while (activeFoods.filter((item) => item.type === "regular").length < desiredRegularFoodCount()) {
+    activeFoods.push(spawnFood("regular"));
+  }
+}
+
+function maybeSpawnTimedFood() {
+  if (!activeFoods.some((item) => item.type === "special") && Math.random() < specialFood.spawnChance) {
+    activeFoods.push(spawnFood("special"));
+  }
+  if (!activeFoods.some((item) => item.type === "bad") && Math.random() < badFood.spawnChance) {
+    activeFoods.push(spawnFood("bad"));
+  }
+}
+
+function pruneExpiredFoods() {
+  const now = Date.now();
+  activeFoods = activeFoods.filter((item) => !item.expiresAt || item.expiresAt > now);
+}
+
+function spawnFood(type = "regular") {
   let next;
   do {
-    const isSpecial = Math.random() < specialFood.spawnChance;
     next = {
       x: Math.floor(Math.random() * grid),
       y: Math.floor(Math.random() * grid),
-      type: isSpecial ? "special" : "regular",
+      type,
       kind: Math.floor(Math.random() * foods.length),
-      spin: Math.random() * Math.PI * 2
+      spin: Math.random() * Math.PI * 2,
+      expiresAt:
+        type === "special"
+          ? Date.now() + specialFood.lifeMs
+          : type === "bad"
+            ? Date.now() + badFood.lifeMs
+            : null
     };
-  } while (snake.some((part) => part.x === next.x && part.y === next.y));
+  } while (
+    snake.some((part) => part.x === next.x && part.y === next.y) ||
+    activeFoods.some((item) => item.x === next.x && item.y === next.y)
+  );
   return next;
 }
 
@@ -644,26 +714,45 @@ function drawBackground() {
 }
 
 function drawFood() {
-  if (!food) return;
-  const isSpecial = food.type === "special";
-  const img = isSpecial ? specialFoodImage : foods[food.kind];
-  const cx = food.x * cell + cell / 2;
-  const cy = food.y * cell + cell / 2;
-  const size = cell * (isSpecial ? 1.78 : 1.58);
-  ctx.save();
-  ctx.translate(cx, cy);
-  ctx.rotate(Math.sin(Date.now() / 260 + food.spin) * (isSpecial ? 0.16 : 0.08));
-  ctx.shadowColor = isSpecial ? "rgba(244, 178, 59, 0.82)" : "rgba(0, 0, 0, 0.38)";
-  ctx.shadowBlur = isSpecial ? 22 : 12;
-  ctx.shadowOffsetY = 7;
-  if (img.complete) {
-    ctx.drawImage(img, -size / 2, -size / 2, size, size);
-  } else {
-    ctx.fillStyle = "#f4b23b";
-    roundRect(-size / 2, -size / 2, size, size, 14);
-    ctx.fill();
-  }
-  ctx.restore();
+  if (!activeFoods?.length) return;
+  activeFoods.forEach((item) => {
+    const isSpecial = item.type === "special";
+    const isBad = item.type === "bad";
+    const img = isSpecial ? specialFoodImage : isBad ? badFoodImage : foods[item.kind];
+    const cx = item.x * cell + cell / 2;
+    const cy = item.y * cell + cell / 2;
+    const size = cell * (isSpecial ? 2.42 : isBad ? 2.12 : 1.82);
+    ctx.save();
+    ctx.translate(cx, cy);
+    ctx.rotate(Math.sin(Date.now() / 260 + item.spin) * (isSpecial || isBad ? 0.16 : 0.08));
+    ctx.shadowColor = isSpecial
+      ? "rgba(244, 178, 59, 0.9)"
+      : isBad
+        ? "rgba(155, 94, 255, 0.78)"
+        : "rgba(0, 0, 0, 0.38)";
+    ctx.shadowBlur = isSpecial || isBad ? 24 : 12;
+    ctx.shadowOffsetY = 7;
+    if (img.complete) {
+      ctx.drawImage(img, -size / 2, -size / 2, size, size);
+    } else {
+      ctx.fillStyle = isBad ? "#d7c52d" : "#f4b23b";
+      roundRect(-size / 2, -size / 2, size, size, 14);
+      ctx.fill();
+    }
+    if (item.expiresAt) drawFoodTimer(item, size);
+    ctx.restore();
+  });
+}
+
+function drawFoodTimer(item, size) {
+  const config = item.type === "bad" ? badFood : specialFood;
+  const remaining = Math.max(0, item.expiresAt - Date.now());
+  const progress = remaining / config.lifeMs;
+  ctx.beginPath();
+  ctx.strokeStyle = item.type === "bad" ? "rgba(210, 76, 238, 0.9)" : "rgba(244, 178, 59, 0.9)";
+  ctx.lineWidth = 5;
+  ctx.arc(0, 0, size * 0.42, -Math.PI / 2, -Math.PI / 2 + Math.PI * 2 * progress);
+  ctx.stroke();
 }
 
 function drawSnake() {
@@ -737,7 +826,7 @@ function drawHead(part) {
   const radius = bodyRadius();
   const size = Math.max(cell * 2.23, radius * 4.36);
   const face = selectedFace();
-  const img = customHeadImage || heads[face];
+  const img = heads[face];
 
   ctx.save();
   ctx.translate(cx, cy);
@@ -861,17 +950,6 @@ playerForm.addEventListener("submit", (event) => {
 
 adminResetButton.addEventListener("click", resetRemoteData);
 
-headUpload.addEventListener("change", (event) => {
-  const file = event.target.files?.[0];
-  if (!file) return;
-  const img = new Image();
-  img.onload = () => {
-    customHeadImage = img;
-    draw();
-  };
-  img.src = URL.createObjectURL(file);
-});
-
 startButton.addEventListener("click", () => {
   if (paused) togglePause();
   else startGame();
@@ -880,7 +958,7 @@ startButton.addEventListener("click", () => {
 pauseButton.addEventListener("click", togglePause);
 resetButton.addEventListener("click", resetGame);
 
-[...foods, ...Object.values(heads)].forEach((img) => {
+[...foods, specialFoodImage, badFoodImage, ...Object.values(heads)].forEach((img) => {
   img.addEventListener("load", draw, { once: true });
 });
 
