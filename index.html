@@ -1,0 +1,65 @@
+<!doctype html>
+<html lang="id">
+  <head>
+    <meta charset="utf-8">
+    <meta name="viewport" content="width=device-width, initial-scale=1">
+    <title>Hasan Frenzy</title>
+    <link rel="stylesheet" href="./styles.css">
+  </head>
+  <body>
+    <main class="shell">
+      <section class="game-panel" aria-label="Hasan Frenzy game">
+        <div class="hud">
+          <div>
+            <p class="eyebrow">Snake gorengan</p>
+            <h1>Hasan Frenzy</h1>
+          </div>
+          <div class="stats" aria-label="Game stats">
+            <div>
+              <span>Skor</span>
+              <strong id="score">0</strong>
+            </div>
+            <div>
+              <span>Best</span>
+              <strong id="bestScore">0</strong>
+            </div>
+          </div>
+        </div>
+
+        <div class="board-wrap">
+          <canvas id="game" width="720" height="720" aria-label="Hasan Frenzy board"></canvas>
+          <div id="overlay" class="overlay">
+            <h2 id="overlayTitle">Hasan lapar.</h2>
+            <p id="overlayText">Tekan Start atau Space buat mulai ngejar gorengan.</p>
+            <button id="startButton" class="primary">Start</button>
+          </div>
+        </div>
+
+        <div class="controls">
+          <button id="pauseButton" type="button">Pause</button>
+          <label class="difficulty">
+            <span>Level</span>
+            <select id="difficultySelect" aria-label="Pilih level">
+              <option value="easy">Easy</option>
+              <option value="medium" selected>Medium</option>
+              <option value="hard">Hard</option>
+            </select>
+          </label>
+          <label class="upload">
+            <input id="headUpload" type="file" accept="image/*">
+            Ganti kepala
+          </label>
+          <button id="resetButton" type="button">Reset</button>
+        </div>
+
+        <div class="dpad" aria-label="Directional controls">
+          <button class="arrow up" type="button" data-dir="up" aria-label="Naik">↑</button>
+          <button class="arrow left" type="button" data-dir="left" aria-label="Kiri">←</button>
+          <button class="arrow right" type="button" data-dir="right" aria-label="Kanan">→</button>
+          <button class="arrow down" type="button" data-dir="down" aria-label="Turun">↓</button>
+        </div>
+      </section>
+    </main>
+    <script src="./game.js?v=4"></script>
+  </body>
+</html>
