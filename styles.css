@@ -169,6 +169,27 @@ canvas {
   transform: translateY(-15%);
 }
 
+.bonus-toast {
+  position: absolute;
+  left: 50%;
+  top: 14px;
+  z-index: 3;
+  width: min(88%, 520px);
+  border: 1px solid rgba(244, 178, 59, 0.62);
+  border-radius: 8px;
+  padding: 10px 12px;
+  color: #20170a;
+  background: #f4b23b;
+  box-shadow: 0 14px 34px rgba(0, 0, 0, 0.34);
+  font-weight: 900;
+  text-align: center;
+  transform: translateX(-50%);
+}
+
+.bonus-toast.hidden {
+  display: none;
+}
+
 button,
 .upload,
 .difficulty {
@@ -316,6 +337,10 @@ button:hover,
   gap: 8px;
 }
 
+.leaderboard-actions {
+  grid-template-columns: minmax(0, 1fr);
+}
+
 .leaderboard-head div {
   min-width: 0;
   border: 1px solid var(--line);
@@ -346,6 +371,27 @@ button:hover,
   display: grid;
   gap: 6px;
   list-style-position: inside;
+}
+
+.leaderboard-grid {
+  margin-top: 10px;
+  display: grid;
+  grid-template-columns: repeat(3, minmax(0, 1fr));
+  gap: 8px;
+}
+
+.leaderboard-table {
+  min-width: 0;
+}
+
+.leaderboard-table h3 {
+  margin: 0;
+  border: 1px solid var(--line);
+  border-radius: 8px;
+  padding: 8px 10px;
+  color: var(--gold);
+  background: rgba(20, 18, 15, 0.42);
+  font-size: 0.92rem;
 }
 
 .leaderboard-list li {
@@ -449,6 +495,10 @@ button:hover,
   .controls {
     display: grid;
     grid-template-columns: repeat(2, minmax(0, 1fr));
+  }
+
+  .leaderboard-grid {
+    grid-template-columns: minmax(0, 1fr);
   }
 
   button,

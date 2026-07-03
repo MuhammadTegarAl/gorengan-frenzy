@@ -31,13 +31,14 @@
           <div id="overlay" class="overlay">
             <div id="gameOverVideoFrame" class="game-over-video hidden" aria-hidden="true">
               <video id="gameOverVideo" muted loop playsinline preload="metadata">
-                <source src="./assets/game-over-cry.mp4" type="video/mp4">
+                <source id="gameOverVideoSource" src="./assets/game-over-cry.mp4" type="video/mp4">
               </video>
             </div>
             <h2 id="overlayTitle">Hasan lapar.</h2>
             <p id="overlayText">Tekan Start atau Space buat mulai ngejar gorengan.</p>
             <button id="startButton" class="primary">Start</button>
           </div>
+          <div id="bonusToast" class="bonus-toast hidden">selamat kamu makan sate usus punya pak hedy buat makan siang</div>
         </div>
 
         <div class="dpad" aria-label="Directional controls">
@@ -71,15 +72,31 @@
               <strong id="playerNameDisplay">-</strong>
             </div>
             <div>
-              <span>Top 10</span>
-              <strong id="leaderboardLevel">Medium</strong>
+              <span>Leaderboard</span>
+              <strong>Top 10 semua level</strong>
             </div>
           </div>
-          <ol id="leaderboardList" class="leaderboard-list">
-            <li>Loading...</li>
-          </ol>
+          <div class="leaderboard-grid">
+            <article class="leaderboard-table">
+              <h3>Easy</h3>
+              <ol id="leaderboardEasy" class="leaderboard-list">
+                <li>Loading...</li>
+              </ol>
+            </article>
+            <article class="leaderboard-table">
+              <h3>Medium</h3>
+              <ol id="leaderboardMedium" class="leaderboard-list">
+                <li>Loading...</li>
+              </ol>
+            </article>
+            <article class="leaderboard-table">
+              <h3>Hard</h3>
+              <ol id="leaderboardHard" class="leaderboard-list">
+                <li>Loading...</li>
+              </ol>
+            </article>
+          </div>
           <div class="leaderboard-actions">
-            <button id="changePlayerButton" type="button">Ganti nama</button>
             <button id="adminResetButton" type="button">Reset data</button>
           </div>
           <p id="syncStatus" class="sync-status">Supabase belum dikonfigurasi.</p>
@@ -107,6 +124,6 @@
       </div>
     </main>
     <script src="./supabase-config.js?v=1"></script>
-    <script src="./game.js?v=8"></script>
+    <script src="./game.js?v=9"></script>
   </body>
 </html>

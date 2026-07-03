@@ -7,6 +7,8 @@ const overlayTitle = document.querySelector("#overlayTitle");
 const overlayText = document.querySelector("#overlayText");
 const gameOverVideoFrame = document.querySelector("#gameOverVideoFrame");
 const gameOverVideo = document.querySelector("#gameOverVideo");
+const gameOverVideoSource = document.querySelector("#gameOverVideoSource");
+const bonusToast = document.querySelector("#bonusToast");
 const startButton = document.querySelector("#startButton");
 const pauseButton = document.querySelector("#pauseButton");
 const resetButton = document.querySelector("#resetButton");
@@ -17,10 +19,12 @@ const playerForm = document.querySelector("#playerForm");
 const playerNameInput = document.querySelector("#playerNameInput");
 const initialDifficultySelect = document.querySelector("#initialDifficultySelect");
 const playerNameDisplay = document.querySelector("#playerNameDisplay");
-const changePlayerButton = document.querySelector("#changePlayerButton");
 const adminResetButton = document.querySelector("#adminResetButton");
-const leaderboardList = document.querySelector("#leaderboardList");
-const leaderboardLevel = document.querySelector("#leaderboardLevel");
+const leaderboardLists = {
+  easy: document.querySelector("#leaderboardEasy"),
+  medium: document.querySelector("#leaderboardMedium"),
+  hard: document.querySelector("#leaderboardHard")
+};
 const syncStatus = document.querySelector("#syncStatus");
 
 const grid = 18;
@@ -38,6 +42,13 @@ const foodSources = [
   "./assets/gorengan-5.png",
   "./assets/gorengan-6.png"
 ];
+const specialFood = {
+  name: "Satu Usus Pak Hedy",
+  src: "./assets/satu-usus-pak-hedy.png",
+  score: 20,
+  slowMs: 10000,
+  spawnChance: 0.12
+};
 const foodNames = [
   "Tahu isi",
   "Tempe",
@@ -56,6 +67,7 @@ const headSources = {
 };
 
 const foods = foodSources.map(loadImage);
+const specialFoodImage = loadImage(specialFood.src);
 const heads = Object.fromEntries(Object.entries(headSources).map(([key, src]) => [key, loadImage(src)]));
 
 let snake;
@@ -74,9 +86,10 @@ let stepMs = difficultyConfig.medium.stepMs;
 let customHeadImage = null;
 let touchStart = null;
 let eatFlashUntil = 0;
+let slowUntil = 0;
+let toastTimeout = null;
 let playerName = localStorage.getItem("hasan-frenzy-player") || "";
-let leaderboardAbort = null;
-let eatenCounts = Array(foodSources.length).fill(0);
+let eatenCounts = createEmptyEatenCounts();
 
 bestEl.textContent = best;
 
@@ -86,6 +99,13 @@ function getLocalBest(level) {
 
 function setLocalBest(level, value) {
   localStorage.setItem(`hasan-frenzy-best:${level}`, String(value));
+}
+
+function createEmptyEatenCounts() {
+  return {
+    regular: Array(foodSources.length).fill(0),
+    special: 0
+  };
 }
 
 function loadImage(src) {
@@ -110,7 +130,9 @@ function resetGame() {
   paused = false;
   running = false;
   eatFlashUntil = 0;
-  eatenCounts = Array(foodSources.length).fill(0);
+  slowUntil = 0;
+  eatenCounts = createEmptyEatenCounts();
+  hideBonusToast();
   pauseButton.textContent = "Pause";
   scoreEl.textContent = score;
   bestEl.textContent = best;
@@ -129,7 +151,7 @@ function showOverlay(title, text, buttonText, options = {}) {
   overlayText.textContent = text;
   startButton.textContent = buttonText;
   if (options.video) {
-    showGameOverVideo();
+    showGameOverVideo(Boolean(options.podium));
   } else {
     hideGameOverVideo();
   }
@@ -167,7 +189,7 @@ function togglePause() {
 function loop(time) {
   if (!running || paused || gameOver) return;
   if (!lastTime) lastTime = time;
-  if (time - lastTime >= stepMs) {
+  if (time - lastTime >= currentStepMs()) {
     update();
     draw();
     lastTime = time;
@@ -191,8 +213,15 @@ function update() {
 
   if (willEat) {
     const config = difficultyConfig[currentDifficulty];
-    eatenCounts[food.kind] += 1;
-    score += 10;
+    if (food.type === "special") {
+      eatenCounts.special += 1;
+      score += specialFood.score;
+      slowUntil = Date.now() + specialFood.slowMs;
+      showBonusToast("selamat kamu makan sate usus punya pak hedy buat makan siang");
+    } else {
+      eatenCounts.regular[food.kind] += 1;
+      score += 10;
+    }
     scoreEl.textContent = score;
     best = Math.max(best, score);
     bestEl.textContent = best;
@@ -203,6 +232,10 @@ function update() {
   } else {
     snake.pop();
   }
+}
+
+function currentStepMs() {
+  return Date.now() < slowUntil ? stepMs * 2 : stepMs;
 }
 
 function wrapPosition(point) {
@@ -218,21 +251,25 @@ function endGame() {
   draw();
   handleGameOver(score);
   showOverlay(
-    "Pusing berat.",
-    buildGameOverMessage("Yeee cumi, gitu aja kalah lu", score),
+    "Yeee cumi, gitu aja kalah lu",
+    buildGameOverMessage(score),
     "Main lagi",
-    { video: true }
+    { video: true, podium: false }
   );
 }
 
-function buildGameOverMessage(message, finalScore) {
-  return `${message}. Skor Hasan: ${finalScore}. ${formatEatenCounts()}`;
+function buildGameOverMessage(finalScore) {
+  const name = playerName || "Pemain";
+  return `Skor ${name}: ${finalScore}. ${formatEatenCounts()}`;
 }
 
 function formatEatenCounts() {
-  const eaten = eatenCounts
+  const eaten = eatenCounts.regular
     .map((count, index) => ({ count, name: foodNames[index] || `Gorengan ${index + 1}` }))
     .filter((item) => item.count > 0);
+  if (eatenCounts.special > 0) {
+    eaten.push({ count: eatenCounts.special, name: specialFood.name });
+  }
 
   if (!eaten.length) return "Belum sempat makan gorengan.";
 
@@ -242,14 +279,18 @@ function formatEatenCounts() {
 async function handleGameOver(finalScore) {
   const result = await submitScore(finalScore);
   if (result?.isFirstPlace) {
-    overlayText.textContent = buildGameOverMessage(
-      "heemm hemm, beuhh gorengan nih. selamat yee posisi 1 sementara",
-      finalScore
-    );
+    overlayTitle.textContent = "heemm hemm, beuhh gorengan nih. selamat yee posisi 1 sementara";
+    overlayText.textContent = buildGameOverMessage(finalScore);
+    showGameOverVideo(true);
   }
 }
 
-function showGameOverVideo() {
+function showGameOverVideo(podium = false) {
+  const nextSource = podium ? "./assets/game-over-podium.mp4" : "./assets/game-over-cry.mp4";
+  if (!gameOverVideoSource.src.endsWith(nextSource.replace("./", ""))) {
+    gameOverVideoSource.src = nextSource;
+    gameOverVideo.load();
+  }
   gameOverVideoFrame.classList.remove("hidden");
   gameOverVideo.currentTime = 0;
   const playback = gameOverVideo.play();
@@ -259,6 +300,19 @@ function showGameOverVideo() {
 function hideGameOverVideo() {
   gameOverVideo.pause();
   gameOverVideoFrame.classList.add("hidden");
+}
+
+function showBonusToast(message) {
+  bonusToast.textContent = message;
+  bonusToast.classList.remove("hidden");
+  if (toastTimeout) clearTimeout(toastTimeout);
+  toastTimeout = setTimeout(hideBonusToast, 3200);
+}
+
+function hideBonusToast() {
+  if (toastTimeout) clearTimeout(toastTimeout);
+  toastTimeout = null;
+  bonusToast.classList.add("hidden");
 }
 
 function getSupabaseConfig() {
@@ -299,13 +353,15 @@ function setSyncStatus(message) {
   syncStatus.textContent = message;
 }
 
-function renderLeaderboard(rows) {
-  leaderboardList.replaceChildren();
+function renderLeaderboard(level, rows) {
+  const list = leaderboardLists[level];
+  if (!list) return;
+  list.replaceChildren();
 
   if (!rows.length) {
     const item = document.createElement("li");
     item.textContent = "Belum ada skor.";
-    leaderboardList.append(item);
+    list.append(item);
     return;
   }
 
@@ -316,7 +372,7 @@ function renderLeaderboard(rows) {
     name.textContent = row.username;
     points.textContent = row.score;
     item.append(name, points);
-    leaderboardList.append(item);
+    list.append(item);
   });
 }
 
@@ -327,25 +383,20 @@ async function fetchLeaderboard(level = currentDifficulty) {
 }
 
 async function loadLeaderboard() {
-  leaderboardLevel.textContent = difficultyConfig[currentDifficulty].label;
-
   if (!hasSupabaseConfig()) {
-    renderLeaderboard([]);
+    Object.keys(leaderboardLists).forEach((level) => renderLeaderboard(level, []));
     setSyncStatus("Supabase belum dikonfigurasi.");
     return;
   }
 
-  if (leaderboardAbort) leaderboardAbort.abort();
-  leaderboardAbort = new AbortController();
-
   try {
     setSyncStatus("Sync leaderboard...");
-    const rows = await fetchLeaderboard(currentDifficulty);
-    renderLeaderboard(rows);
+    const levels = Object.keys(leaderboardLists);
+    const results = await Promise.all(levels.map((level) => fetchLeaderboard(level)));
+    levels.forEach((level, index) => renderLeaderboard(level, results[index]));
     setSyncStatus("Leaderboard synced.");
   } catch (error) {
-    if (error.name === "AbortError") return;
-    renderLeaderboard([]);
+    Object.keys(leaderboardLists).forEach((level) => renderLeaderboard(level, []));
     setSyncStatus("Leaderboard gagal sync.");
   }
 }
@@ -365,7 +416,8 @@ async function submitScore(finalScore) {
     });
     const rows = await fetchLeaderboard(currentDifficulty);
     const isFirstPlace = rows[0]?.username === playerName;
-    renderLeaderboard(rows);
+    renderLeaderboard(currentDifficulty, rows);
+    loadLeaderboard();
     setSyncStatus("Skor tersimpan.");
     return { rows, isFirstPlace };
   } catch (error) {
@@ -439,9 +491,11 @@ function setPlayerName(value, level = currentDifficulty) {
 function spawnFood() {
   let next;
   do {
+    const isSpecial = Math.random() < specialFood.spawnChance;
     next = {
       x: Math.floor(Math.random() * grid),
       y: Math.floor(Math.random() * grid),
+      type: isSpecial ? "special" : "regular",
       kind: Math.floor(Math.random() * foods.length),
       spin: Math.random() * Math.PI * 2
     };
@@ -496,15 +550,16 @@ function drawBackground() {
 
 function drawFood() {
   if (!food) return;
-  const img = foods[food.kind];
+  const isSpecial = food.type === "special";
+  const img = isSpecial ? specialFoodImage : foods[food.kind];
   const cx = food.x * cell + cell / 2;
   const cy = food.y * cell + cell / 2;
-  const size = cell * 1.58;
+  const size = cell * (isSpecial ? 1.78 : 1.58);
   ctx.save();
   ctx.translate(cx, cy);
-  ctx.rotate(Math.sin(Date.now() / 260 + food.spin) * 0.08);
-  ctx.shadowColor = "rgba(0, 0, 0, 0.38)";
-  ctx.shadowBlur = 12;
+  ctx.rotate(Math.sin(Date.now() / 260 + food.spin) * (isSpecial ? 0.16 : 0.08));
+  ctx.shadowColor = isSpecial ? "rgba(244, 178, 59, 0.82)" : "rgba(0, 0, 0, 0.38)";
+  ctx.shadowBlur = isSpecial ? 22 : 12;
   ctx.shadowOffsetY = 7;
   if (img.complete) {
     ctx.drawImage(img, -size / 2, -size / 2, size, size);
@@ -640,6 +695,8 @@ function roundRect(x, y, width, height, radius) {
 }
 
 document.addEventListener("keydown", (event) => {
+  if (isTypingTarget(event.target)) return;
+
   const keys = {
     ArrowUp: "up",
     w: "up",
@@ -666,6 +723,12 @@ document.addEventListener("keydown", (event) => {
     else togglePause();
   }
 });
+
+function isTypingTarget(target) {
+  if (!target) return false;
+  const tag = target.tagName;
+  return target.isContentEditable || tag === "INPUT" || tag === "TEXTAREA" || tag === "SELECT" || tag === "BUTTON";
+}
 
 document.querySelectorAll("[data-dir]").forEach((button) => {
   button.addEventListener("click", () => setDirection(button.dataset.dir));
@@ -697,7 +760,6 @@ playerForm.addEventListener("submit", (event) => {
   setPlayerName(playerNameInput.value, initialDifficultySelect.value);
 });
 
-changePlayerButton.addEventListener("click", showPlayerModal);
 adminResetButton.addEventListener("click", resetRemoteData);
 
 headUpload.addEventListener("change", (event) => {
