@@ -23,7 +23,8 @@ const foodSources = [
   "./assets/gorengan-2.png",
   "./assets/gorengan-3.png",
   "./assets/gorengan-4.png",
-  "./assets/gorengan-5.png"
+  "./assets/gorengan-5.png",
+  "./assets/gorengan-6.png"
 ];
 const headSources = {
   left: "./assets/head-left.png",
@@ -237,7 +238,7 @@ function drawFood() {
   const img = foods[food.kind];
   const cx = food.x * cell + cell / 2;
   const cy = food.y * cell + cell / 2;
-  const size = cell * 1.42;
+  const size = cell * 1.58;
   ctx.save();
   ctx.translate(cx, cy);
   ctx.rotate(Math.sin(Date.now() / 260 + food.spin) * 0.08);
@@ -323,7 +324,7 @@ function drawHead(part) {
   const cx = part.x * cell + cell / 2;
   const cy = part.y * cell + cell / 2;
   const radius = bodyRadius();
-  const size = Math.max(cell * 1.24, radius * 2.42);
+  const size = Math.max(cell * 2.23, radius * 4.36);
   const face = selectedFace();
   const img = customHeadImage || heads[face];
 

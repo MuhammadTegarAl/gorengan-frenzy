@@ -42,7 +42,7 @@ label {
 .game-panel {
   width: min(100%, 980px);
   display: grid;
-  gap: 16px;
+  gap: 10px;
 }
 
 .hud,
@@ -101,7 +101,7 @@ h1 {
 
 .board-wrap {
   position: relative;
-  width: min(100%, 76vh, 820px);
+  width: min(100%, 68vh, 760px);
   aspect-ratio: 1;
   margin: 0 auto;
   border: 1px solid rgba(255, 248, 231, 0.22);
@@ -215,23 +215,23 @@ button:hover,
 }
 
 .dpad {
-  width: 170px;
-  height: 170px;
-  margin: 0 auto;
+  width: 166px;
+  height: 148px;
+  margin: -2px auto 0;
   display: grid;
   grid-template-areas:
     ". up ."
     "left . right"
     ". down .";
-  grid-template-columns: repeat(3, 54px);
-  grid-template-rows: repeat(3, 54px);
-  gap: 4px;
+  grid-template-columns: repeat(3, 48px);
+  grid-template-rows: repeat(3, 48px);
+  gap: 2px 8px;
   justify-content: center;
 }
 
 .arrow {
-  width: 54px;
-  height: 54px;
+  width: 48px;
+  height: 48px;
   padding: 0;
   font-size: 1.4rem;
 }
@@ -254,21 +254,15 @@ button:hover,
 
 @media (min-width: 840px) {
   .game-panel {
-    grid-template-columns: 1fr 170px;
-    align-items: end;
+    grid-template-columns: minmax(0, 1fr);
+    align-items: center;
   }
 
   .hud,
   .board-wrap,
+  .dpad,
   .controls {
     grid-column: 1;
-  }
-
-  .dpad {
-    grid-column: 2;
-    grid-row: 2 / span 2;
-    align-self: end;
-    margin-bottom: 10px;
   }
 }
 
