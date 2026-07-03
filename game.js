@@ -5,6 +5,8 @@ const bestEl = document.querySelector("#bestScore");
 const overlay = document.querySelector("#overlay");
 const overlayTitle = document.querySelector("#overlayTitle");
 const overlayText = document.querySelector("#overlayText");
+const gameOverVideoFrame = document.querySelector("#gameOverVideoFrame");
+const gameOverVideo = document.querySelector("#gameOverVideo");
 const startButton = document.querySelector("#startButton");
 const pauseButton = document.querySelector("#pauseButton");
 const resetButton = document.querySelector("#resetButton");
@@ -81,6 +83,7 @@ function resetGame() {
   scoreEl.textContent = score;
   food = spawnFood();
   draw();
+  hideGameOverVideo();
   showOverlay(
     "Hasan lapar.",
     `Mode ${config.label}. Tembus pinggir, makan gorengan, jangan gigit badan sendiri.`,
@@ -88,14 +91,20 @@ function resetGame() {
   );
 }
 
-function showOverlay(title, text, buttonText) {
+function showOverlay(title, text, buttonText, options = {}) {
   overlayTitle.textContent = title;
   overlayText.textContent = text;
   startButton.textContent = buttonText;
+  if (options.video) {
+    showGameOverVideo();
+  } else {
+    hideGameOverVideo();
+  }
   overlay.classList.remove("hidden");
 }
 
 function hideOverlay() {
+  hideGameOverVideo();
   overlay.classList.add("hidden");
 }
 
@@ -172,7 +181,24 @@ function endGame() {
   running = false;
   gameOver = true;
   draw();
-  showOverlay("Pusing berat.", `Skor Hasan: ${score}. Badannya sudah segemuk ${snake.length} ruas.`, "Main lagi");
+  showOverlay(
+    "Pusing berat.",
+    `Skor Hasan: ${score}. Badannya sudah segemuk ${snake.length} ruas.`,
+    "Main lagi",
+    { video: true }
+  );
+}
+
+function showGameOverVideo() {
+  gameOverVideoFrame.classList.remove("hidden");
+  gameOverVideo.currentTime = 0;
+  const playback = gameOverVideo.play();
+  if (playback) playback.catch(() => {});
+}
+
+function hideGameOverVideo() {
+  gameOverVideo.pause();
+  gameOverVideoFrame.classList.add("hidden");
 }
 
 function spawnFood() {
