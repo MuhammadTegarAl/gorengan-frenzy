@@ -12,6 +12,16 @@ const pauseButton = document.querySelector("#pauseButton");
 const resetButton = document.querySelector("#resetButton");
 const headUpload = document.querySelector("#headUpload");
 const difficultySelect = document.querySelector("#difficultySelect");
+const playerModal = document.querySelector("#playerModal");
+const playerForm = document.querySelector("#playerForm");
+const playerNameInput = document.querySelector("#playerNameInput");
+const initialDifficultySelect = document.querySelector("#initialDifficultySelect");
+const playerNameDisplay = document.querySelector("#playerNameDisplay");
+const changePlayerButton = document.querySelector("#changePlayerButton");
+const adminResetButton = document.querySelector("#adminResetButton");
+const leaderboardList = document.querySelector("#leaderboardList");
+const leaderboardLevel = document.querySelector("#leaderboardLevel");
+const syncStatus = document.querySelector("#syncStatus");
 
 const grid = 18;
 const cell = canvas.width / grid;
@@ -27,6 +37,14 @@ const foodSources = [
   "./assets/gorengan-4.png",
   "./assets/gorengan-5.png",
   "./assets/gorengan-6.png"
+];
+const foodNames = [
+  "Tahu isi",
+  "Tempe",
+  "Pastel",
+  "Cireng",
+  "Risol",
+  "Bakwan"
 ];
 const headSources = {
   left: "./assets/head-left.png",
@@ -45,18 +63,30 @@ let direction;
 let queuedDirection;
 let food;
 let score;
-let best = Number(localStorage.getItem("hasan-frenzy-best") || 0);
+const savedDifficulty = localStorage.getItem("hasan-frenzy-level");
+let currentDifficulty = difficultyConfig[savedDifficulty] ? savedDifficulty : "medium";
+let best = getLocalBest(currentDifficulty);
 let running = false;
 let paused = false;
 let gameOver = false;
 let lastTime = 0;
 let stepMs = difficultyConfig.medium.stepMs;
-let currentDifficulty = "medium";
 let customHeadImage = null;
 let touchStart = null;
 let eatFlashUntil = 0;
+let playerName = localStorage.getItem("hasan-frenzy-player") || "";
+let leaderboardAbort = null;
+let eatenCounts = Array(foodSources.length).fill(0);
 
 bestEl.textContent = best;
+
+function getLocalBest(level) {
+  return Number(localStorage.getItem(`hasan-frenzy-best:${level}`) || 0);
+}
+
+function setLocalBest(level, value) {
+  localStorage.setItem(`hasan-frenzy-best:${level}`, String(value));
+}
 
 function loadImage(src) {
   const img = new Image();
@@ -66,6 +96,7 @@ function loadImage(src) {
 
 function resetGame() {
   const config = difficultyConfig[currentDifficulty];
+  best = getLocalBest(currentDifficulty);
   snake = [
     { x: 8, y: 9 },
     { x: 7, y: 9 },
@@ -79,8 +110,10 @@ function resetGame() {
   paused = false;
   running = false;
   eatFlashUntil = 0;
+  eatenCounts = Array(foodSources.length).fill(0);
   pauseButton.textContent = "Pause";
   scoreEl.textContent = score;
+  bestEl.textContent = best;
   food = spawnFood();
   draw();
   hideGameOverVideo();
@@ -109,6 +142,7 @@ function hideOverlay() {
 }
 
 function startGame() {
+  if (!ensurePlayerName()) return;
   if (gameOver) resetGame();
   running = true;
   paused = false;
@@ -157,11 +191,12 @@ function update() {
 
   if (willEat) {
     const config = difficultyConfig[currentDifficulty];
+    eatenCounts[food.kind] += 1;
     score += 10;
     scoreEl.textContent = score;
     best = Math.max(best, score);
     bestEl.textContent = best;
-    localStorage.setItem("hasan-frenzy-best", best);
+    setLocalBest(currentDifficulty, best);
     stepMs = Math.max(config.minStepMs, stepMs - config.speedUp);
     eatFlashUntil = Date.now() + 520;
     food = spawnFood();
@@ -181,12 +216,37 @@ function endGame() {
   running = false;
   gameOver = true;
   draw();
+  handleGameOver(score);
   showOverlay(
     "Pusing berat.",
-    `Skor Hasan: ${score}. Badannya sudah segemuk ${snake.length} ruas.`,
+    buildGameOverMessage("Yeee cumi, gitu aja kalah lu", score),
     "Main lagi",
     { video: true }
   );
+}
+
+function buildGameOverMessage(message, finalScore) {
+  return `${message}. Skor Hasan: ${finalScore}. ${formatEatenCounts()}`;
+}
+
+function formatEatenCounts() {
+  const eaten = eatenCounts
+    .map((count, index) => ({ count, name: foodNames[index] || `Gorengan ${index + 1}` }))
+    .filter((item) => item.count > 0);
+
+  if (!eaten.length) return "Belum sempat makan gorengan.";
+
+  return `Gorengan dimakan: ${eaten.map((item) => `${item.name} ${item.count}`).join(", ")}.`;
+}
+
+async function handleGameOver(finalScore) {
+  const result = await submitScore(finalScore);
+  if (result?.isFirstPlace) {
+    overlayText.textContent = buildGameOverMessage(
+      "heemm hemm, beuhh gorengan nih. selamat yee posisi 1 sementara",
+      finalScore
+    );
+  }
 }
 
 function showGameOverVideo() {
@@ -199,6 +259,181 @@ function showGameOverVideo() {
 function hideGameOverVideo() {
   gameOverVideo.pause();
   gameOverVideoFrame.classList.add("hidden");
+}
+
+function getSupabaseConfig() {
+  const config = window.HASAN_SUPABASE_CONFIG || {};
+  return {
+    url: (config.url || "").replace(/\/$/, ""),
+    anonKey: config.anonKey || ""
+  };
+}
+
+function hasSupabaseConfig() {
+  const config = getSupabaseConfig();
+  return Boolean(config.url && config.anonKey);
+}
+
+async function supabaseRequest(path, options = {}) {
+  const config = getSupabaseConfig();
+  const response = await fetch(`${config.url}${path}`, {
+    ...options,
+    headers: {
+      apikey: config.anonKey,
+      Authorization: `Bearer ${config.anonKey}`,
+      "Content-Type": "application/json",
+      ...(options.headers || {})
+    }
+  });
+
+  if (!response.ok) {
+    const text = await response.text();
+    throw new Error(text || `Supabase request failed (${response.status})`);
+  }
+
+  if (response.status === 204) return null;
+  return response.json();
+}
+
+function setSyncStatus(message) {
+  syncStatus.textContent = message;
+}
+
+function renderLeaderboard(rows) {
+  leaderboardList.replaceChildren();
+
+  if (!rows.length) {
+    const item = document.createElement("li");
+    item.textContent = "Belum ada skor.";
+    leaderboardList.append(item);
+    return;
+  }
+
+  rows.forEach((row) => {
+    const item = document.createElement("li");
+    const name = document.createElement("strong");
+    const points = document.createElement("span");
+    name.textContent = row.username;
+    points.textContent = row.score;
+    item.append(name, points);
+    leaderboardList.append(item);
+  });
+}
+
+async function fetchLeaderboard(level = currentDifficulty) {
+  return supabaseRequest(
+    `/rest/v1/hasan_frenzy_scores?select=username,score,updated_at&level=eq.${encodeURIComponent(level)}&order=score.desc,updated_at.asc&limit=10`
+  );
+}
+
+async function loadLeaderboard() {
+  leaderboardLevel.textContent = difficultyConfig[currentDifficulty].label;
+
+  if (!hasSupabaseConfig()) {
+    renderLeaderboard([]);
+    setSyncStatus("Supabase belum dikonfigurasi.");
+    return;
+  }
+
+  if (leaderboardAbort) leaderboardAbort.abort();
+  leaderboardAbort = new AbortController();
+
+  try {
+    setSyncStatus("Sync leaderboard...");
+    const rows = await fetchLeaderboard(currentDifficulty);
+    renderLeaderboard(rows);
+    setSyncStatus("Leaderboard synced.");
+  } catch (error) {
+    if (error.name === "AbortError") return;
+    renderLeaderboard([]);
+    setSyncStatus("Leaderboard gagal sync.");
+  }
+}
+
+async function submitScore(finalScore) {
+  if (!hasSupabaseConfig() || !playerName || finalScore <= 0) return null;
+
+  try {
+    setSyncStatus("Nyimpen skor...");
+    await supabaseRequest("/rest/v1/rpc/submit_hasan_frenzy_score", {
+      method: "POST",
+      body: JSON.stringify({
+        p_username: playerName,
+        p_level: currentDifficulty,
+        p_score: finalScore
+      })
+    });
+    const rows = await fetchLeaderboard(currentDifficulty);
+    const isFirstPlace = rows[0]?.username === playerName;
+    renderLeaderboard(rows);
+    setSyncStatus("Skor tersimpan.");
+    return { rows, isFirstPlace };
+  } catch (error) {
+    setSyncStatus("Skor gagal tersimpan.");
+    return null;
+  }
+}
+
+async function resetRemoteData() {
+  if (!hasSupabaseConfig()) {
+    alert("Supabase belum dikonfigurasi.");
+    return;
+  }
+
+  const password = prompt("Password admin");
+  if (password === null) return;
+
+  try {
+    setSyncStatus("Reset data...");
+    await supabaseRequest("/rest/v1/rpc/reset_hasan_frenzy_scores", {
+      method: "POST",
+      body: JSON.stringify({ p_password: password })
+    });
+    ["easy", "medium", "hard"].forEach((level) => setLocalBest(level, 0));
+    best = 0;
+    bestEl.textContent = best;
+    setSyncStatus("Data leaderboard direset.");
+    loadLeaderboard();
+  } catch (error) {
+    setSyncStatus("Password salah atau reset gagal.");
+  }
+}
+
+function sanitizeUsername(value) {
+  return value.trim().replace(/\s+/g, " ").slice(0, 24);
+}
+
+function ensurePlayerName() {
+  if (playerName) return true;
+  showPlayerModal();
+  return false;
+}
+
+function showPlayerModal() {
+  playerNameInput.value = playerName;
+  initialDifficultySelect.value = currentDifficulty;
+  playerModal.classList.remove("hidden");
+  playerNameInput.focus();
+}
+
+function hidePlayerModal() {
+  playerModal.classList.add("hidden");
+}
+
+function setPlayerName(value, level = currentDifficulty) {
+  playerName = sanitizeUsername(value);
+  if (!playerName) return false;
+  if (difficultyConfig[level]) {
+    currentDifficulty = level;
+    difficultySelect.value = level;
+  }
+  localStorage.setItem("hasan-frenzy-player", playerName);
+  localStorage.setItem("hasan-frenzy-level", currentDifficulty);
+  playerNameDisplay.textContent = playerName;
+  hidePlayerModal();
+  resetGame();
+  loadLeaderboard();
+  return true;
 }
 
 function spawnFood() {
@@ -452,8 +687,18 @@ canvas.addEventListener("pointerup", (event) => {
 
 difficultySelect.addEventListener("change", (event) => {
   currentDifficulty = event.target.value;
+  localStorage.setItem("hasan-frenzy-level", currentDifficulty);
   resetGame();
+  loadLeaderboard();
 });
+
+playerForm.addEventListener("submit", (event) => {
+  event.preventDefault();
+  setPlayerName(playerNameInput.value, initialDifficultySelect.value);
+});
+
+changePlayerButton.addEventListener("click", showPlayerModal);
+adminResetButton.addEventListener("click", resetRemoteData);
 
 headUpload.addEventListener("change", (event) => {
   const file = event.target.files?.[0];
@@ -479,3 +724,7 @@ resetButton.addEventListener("click", resetGame);
 });
 
 resetGame();
+difficultySelect.value = currentDifficulty;
+playerNameDisplay.textContent = playerName || "-";
+loadLeaderboard();
+ensurePlayerName();

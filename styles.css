@@ -186,6 +186,32 @@ button,
   cursor: pointer;
 }
 
+input,
+.name-modal select {
+  min-height: 44px;
+  width: 100%;
+  border: 1px solid var(--line);
+  border-radius: 8px;
+  padding: 0 12px;
+  color: var(--ink);
+  background: rgba(20, 18, 15, 0.82);
+  font: inherit;
+  font-weight: 800;
+  outline: 0;
+}
+
+input:focus {
+  border-color: rgba(244, 178, 59, 0.8);
+}
+
+.name-modal select {
+  cursor: pointer;
+}
+
+.name-modal option {
+  color: #171512;
+}
+
 button:hover,
 .upload:hover,
 .difficulty:hover {
@@ -274,6 +300,120 @@ button:hover,
   grid-area: down;
 }
 
+.leaderboard-panel {
+  width: min(100%, 760px);
+  margin: 4px auto 0;
+  border: 1px solid var(--line);
+  border-radius: 8px;
+  padding: 12px;
+  background: rgba(36, 33, 29, 0.74);
+}
+
+.leaderboard-head,
+.leaderboard-actions {
+  display: grid;
+  grid-template-columns: repeat(2, minmax(0, 1fr));
+  gap: 8px;
+}
+
+.leaderboard-head div {
+  min-width: 0;
+  border: 1px solid var(--line);
+  border-radius: 8px;
+  padding: 8px 10px;
+  background: rgba(20, 18, 15, 0.42);
+}
+
+.leaderboard-head span,
+.name-modal span {
+  display: block;
+  color: var(--muted);
+  font-size: 0.76rem;
+}
+
+.leaderboard-head strong {
+  display: block;
+  overflow: hidden;
+  font-size: 1.02rem;
+  text-overflow: ellipsis;
+  white-space: nowrap;
+}
+
+.leaderboard-list {
+  min-height: 44px;
+  margin: 10px 0;
+  padding: 0;
+  display: grid;
+  gap: 6px;
+  list-style-position: inside;
+}
+
+.leaderboard-list li {
+  border: 1px solid rgba(255, 248, 231, 0.1);
+  border-radius: 8px;
+  padding: 8px 10px;
+  color: var(--muted);
+  background: rgba(20, 18, 15, 0.3);
+}
+
+.leaderboard-list strong {
+  color: var(--ink);
+}
+
+.leaderboard-list span {
+  float: right;
+  color: var(--gold);
+  font-weight: 900;
+}
+
+.sync-status {
+  min-height: 1.1rem;
+  margin: 8px 0 0;
+  color: var(--muted);
+  font-size: 0.82rem;
+}
+
+.modal-backdrop {
+  position: fixed;
+  inset: 0;
+  z-index: 20;
+  display: grid;
+  place-items: center;
+  padding: 18px;
+  background: rgba(8, 7, 6, 0.76);
+  backdrop-filter: blur(7px);
+}
+
+.modal-backdrop.hidden {
+  display: none;
+}
+
+.name-modal {
+  width: min(100%, 380px);
+  border: 1px solid var(--line);
+  border-radius: 8px;
+  padding: 18px;
+  display: grid;
+  gap: 12px;
+  background: #24211d;
+  box-shadow: 0 24px 80px rgba(0, 0, 0, 0.52);
+}
+
+.name-modal h2 {
+  margin-bottom: 0;
+  font-size: 1.7rem;
+}
+
+.name-modal p {
+  margin-bottom: 0;
+  color: var(--muted);
+}
+
+.name-modal label {
+  display: grid;
+  gap: 6px;
+}
+
 @media (min-width: 840px) {
   .game-panel {
     grid-template-columns: minmax(0, 1fr);
@@ -283,7 +423,8 @@ button:hover,
   .hud,
   .board-wrap,
   .dpad,
-  .controls {
+  .controls,
+  .leaderboard-panel {
     grid-column: 1;
   }
 }

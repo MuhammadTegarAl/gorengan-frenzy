@@ -63,8 +63,50 @@
           </label>
           <button id="resetButton" type="button">Reset</button>
         </div>
+
+        <section class="leaderboard-panel" aria-label="Leaderboard">
+          <div class="leaderboard-head">
+            <div>
+              <span>Pemain</span>
+              <strong id="playerNameDisplay">-</strong>
+            </div>
+            <div>
+              <span>Top 10</span>
+              <strong id="leaderboardLevel">Medium</strong>
+            </div>
+          </div>
+          <ol id="leaderboardList" class="leaderboard-list">
+            <li>Loading...</li>
+          </ol>
+          <div class="leaderboard-actions">
+            <button id="changePlayerButton" type="button">Ganti nama</button>
+            <button id="adminResetButton" type="button">Reset data</button>
+          </div>
+          <p id="syncStatus" class="sync-status">Supabase belum dikonfigurasi.</p>
+        </section>
       </section>
+
+      <div id="playerModal" class="modal-backdrop hidden" role="dialog" aria-modal="true" aria-labelledby="playerModalTitle">
+        <form id="playerForm" class="name-modal">
+          <h2 id="playerModalTitle">Masuk dulu.</h2>
+          <p>Nama ini dipakai buat nyimpen skor dan leaderboard.</p>
+          <label>
+            <span>Username</span>
+            <input id="playerNameInput" name="username" type="text" maxlength="24" autocomplete="nickname" required>
+          </label>
+          <label>
+            <span>Level awal</span>
+            <select id="initialDifficultySelect" name="difficulty">
+              <option value="easy">Easy</option>
+              <option value="medium" selected>Medium</option>
+              <option value="hard">Hard</option>
+            </select>
+          </label>
+          <button class="primary" type="submit">Gas main</button>
+        </form>
+      </div>
     </main>
-    <script src="./game.js?v=6"></script>
+    <script src="./supabase-config.js?v=1"></script>
+    <script src="./game.js?v=8"></script>
   </body>
 </html>
