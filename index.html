@@ -129,8 +129,23 @@
           <button class="primary" type="submit">Gas main</button>
         </form>
       </div>
+
+      <section id="analyticsConsent" class="consent-bar hidden" aria-label="Analytics consent">
+        <p>Izinin analytics buat bantu ngukur gameplay Hasan Frenzy?</p>
+        <div>
+          <button id="analyticsDecline" type="button">Nanti aja</button>
+          <button id="analyticsAccept" class="primary" type="button">Boleh</button>
+        </div>
+      </section>
     </main>
+    <script>
+      window.HASAN_ANALYTICS_CONFIG = {
+        mixpanelToken: "ccea2d345622b54b91d3b4b1f8c2710f",
+        appVersion: "1.1.0"
+      };
+    </script>
     <script src="./supabase-config.js?v=1"></script>
-    <script src="./game.js?v=11"></script>
+    <script src="./analytics.js?v=3"></script>
+    <script src="./game.js?v=12"></script>
   </body>
 </html>

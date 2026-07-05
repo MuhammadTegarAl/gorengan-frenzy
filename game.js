@@ -20,6 +20,9 @@ const playerNameInput = document.querySelector("#playerNameInput");
 const initialDifficultySelect = document.querySelector("#initialDifficultySelect");
 const playerNameDisplay = document.querySelector("#playerNameDisplay");
 const adminResetButton = document.querySelector("#adminResetButton");
+const analyticsConsent = document.querySelector("#analyticsConsent");
+const analyticsAccept = document.querySelector("#analyticsAccept");
+const analyticsDecline = document.querySelector("#analyticsDecline");
 const leaderboardLists = {
   easy: document.querySelector("#leaderboardEasy"),
   medium: document.querySelector("#leaderboardMedium"),
@@ -106,6 +109,15 @@ let audioContext = null;
 let soundEnabled = localStorage.getItem(soundStorageKey) !== "off";
 let musicTimer = null;
 let musicStep = 0;
+let runStartedAt = 0;
+let totalPausedMs = 0;
+let pauseStartedAt = 0;
+let lastPauseDurationSeconds = 0;
+let latestControlMethod = "unknown";
+let gameOverEventTracked = false;
+let gameOpenedTracked = false;
+let bestScoreLevelBeforeRun = best;
+let bestScoreOverallBeforeRun = getOverallBest();
 
 bestEl.textContent = best;
 
@@ -115,6 +127,10 @@ function getLocalBest(level) {
 
 function setLocalBest(level, value) {
   localStorage.setItem(`hasan-frenzy-best:${level}`, String(value));
+}
+
+function getOverallBest() {
+  return Math.max(...Object.keys(difficultyConfig).map((level) => getLocalBest(level)));
 }
 
 function createEmptyEatenCounts() {
@@ -129,6 +145,94 @@ function loadImage(src) {
   const img = new Image();
   img.src = src;
   return img;
+}
+
+function gameState() {
+  if (gameOver) return "game_over";
+  if (paused) return "paused";
+  if (running) return "playing";
+  return "idle";
+}
+
+function elapsedSeconds() {
+  if (!runStartedAt) return 0;
+  const activePauseMs = paused && pauseStartedAt ? Date.now() - pauseStartedAt : 0;
+  return Math.max(0, Math.round((Date.now() - runStartedAt - totalPausedMs - activePauseMs) / 100) / 10);
+}
+
+function totalRegularFoodsEaten() {
+  return eatenCounts.regular.reduce((sum, count) => sum + count, 0);
+}
+
+function totalFoodsEaten() {
+  return totalRegularFoodsEaten() + eatenCounts.special + eatenCounts.bad;
+}
+
+function enumValue(value) {
+  return String(value)
+    .toLowerCase()
+    .replace(/[^a-z0-9]+/g, "_")
+    .replace(/^_+|_+$/g, "");
+}
+
+function analyticsContext() {
+  return {
+    player_name: playerName || "",
+    level: currentDifficulty,
+    score,
+    best_score_overall: getOverallBest(),
+    best_score_easy: getLocalBest("easy"),
+    best_score_medium: getLocalBest("medium"),
+    best_score_hard: getLocalBest("hard"),
+    sound_enabled: soundEnabled,
+    game_state: gameState()
+  };
+}
+
+function trackGameEvent(eventName, properties = {}) {
+  window.HasanAnalytics?.trackEvent(eventName, properties);
+}
+
+function identifyPlayer() {
+  if (!playerName) return;
+  const stableId = `hasan_frenzy:${playerName.toLowerCase()}`;
+  window.HasanAnalytics?.identify(stableId, {
+    player_name: playerName,
+    preferred_level: currentDifficulty,
+    best_score_overall: getOverallBest()
+  });
+}
+
+function maybeTrackGameOpened() {
+  if (gameOpenedTracked) return;
+  gameOpenedTracked = true;
+  trackGameEvent("Game Opened", {
+    has_existing_best_score: getOverallBest() > 0,
+    best_score_overall: getOverallBest(),
+    best_score_easy: getLocalBest("easy"),
+    best_score_medium: getLocalBest("medium"),
+    best_score_hard: getLocalBest("hard")
+  });
+}
+
+function startAnalyticsRun() {
+  runStartedAt = Date.now();
+  totalPausedMs = 0;
+  pauseStartedAt = 0;
+  lastPauseDurationSeconds = 0;
+  gameOverEventTracked = false;
+  bestScoreLevelBeforeRun = getLocalBest(currentDifficulty);
+  bestScoreOverallBeforeRun = getOverallBest();
+
+  // Fires only when a new playable run begins.
+  trackGameEvent("Game Started", {
+    starting_score: score,
+    best_score_level: bestScoreLevelBeforeRun,
+    best_score_overall: bestScoreOverallBeforeRun,
+    control_method: latestControlMethod,
+    board_size: `${grid}x${grid}`,
+    snake_initial_length: snake.length
+  });
 }
 
 function resetGame() {
@@ -185,6 +289,7 @@ function hideOverlay() {
 
 function startGame() {
   if (!ensurePlayerName()) return;
+  const shouldStartNewRun = !running || gameOver;
   ensureAudio();
   if (soundEnabled) startCircusMusic();
   if (gameOver) resetGame();
@@ -193,6 +298,7 @@ function startGame() {
   lastTime = 0;
   pauseButton.textContent = "Pause";
   hideOverlay();
+  if (shouldStartNewRun) startAnalyticsRun();
   requestAnimationFrame(loop);
 }
 
@@ -201,11 +307,32 @@ function togglePause() {
   paused = !paused;
   pauseButton.textContent = paused ? "Resume" : "Pause";
   if (paused) {
+    pauseStartedAt = Date.now();
     stopCircusMusic();
+    // User manually paused the current run.
+    trackGameEvent("Game Paused", {
+      score,
+      snake_length: snake.length,
+      elapsed_seconds: elapsedSeconds(),
+      foods_eaten_total: totalFoodsEaten(),
+      special_items_eaten_total: eatenCounts.special,
+      poison_eaten_total: eatenCounts.bad,
+      reason: "manual"
+    });
     showOverlay("Jeda dulu.", "Tekan Resume atau Space buat lanjut.", "Resume");
   } else {
+    lastPauseDurationSeconds = pauseStartedAt ? Math.round((Date.now() - pauseStartedAt) / 100) / 10 : 0;
+    totalPausedMs += pauseStartedAt ? Date.now() - pauseStartedAt : 0;
+    pauseStartedAt = 0;
     hideOverlay();
     if (soundEnabled) startCircusMusic();
+    // User resumed after a manual pause.
+    trackGameEvent("Game Resumed", {
+      score,
+      snake_length: snake.length,
+      elapsed_seconds: elapsedSeconds(),
+      pause_duration_seconds: lastPauseDurationSeconds
+    });
     requestAnimationFrame(loop);
   }
 }
@@ -231,6 +358,8 @@ function update() {
   const foodIndex = activeFoods.findIndex((item) => item.x === next.x && item.y === next.y);
   const willEat = foodIndex >= 0;
   const collisionBody = willEat ? snake : snake.slice(0, -1);
+  const scoreBefore = score;
+  const snakeLengthBefore = snake.length;
 
   if (collisionBody.some((part) => part.x === next.x && part.y === next.y)) {
     endGame();
@@ -248,15 +377,53 @@ function update() {
       slowUntil = Date.now() + specialFood.slowMs;
       showEffectToast("benefit");
       playMunchSound(true);
+      // Tracks rare benefit item collection, including how long it stayed available.
+      trackGameEvent("Special Item Eaten", {
+        item_type: "sate_usus",
+        score_before: scoreBefore,
+        score_after: score,
+        points_gained: specialFood.score,
+        snake_length_before: snakeLengthBefore,
+        snake_length_after: snake.length,
+        elapsed_seconds: elapsedSeconds(),
+        spawn_duration_seconds: Math.round((specialFood.lifeMs - Math.max(0, eatenFood.expiresAt - Date.now())) / 100) / 10,
+        position_x: eatenFood.x,
+        position_y: eatenFood.y
+      });
     } else if (eatenFood.type === "bad") {
       eatenCounts.bad += 1;
       fastUntil = Date.now() + badFood.fastMs;
       showEffectToast("bad");
       playMunchSound(true);
+      // Tracks poison item collection and the speed penalty trigger.
+      trackGameEvent("Poison Eaten", {
+        poison_type: "chiki_kadaluwarsa",
+        penalty_type: "speed_up",
+        score_before: scoreBefore,
+        score_after: score,
+        points_lost: 0,
+        snake_length_before: snakeLengthBefore,
+        snake_length_after: snake.length,
+        elapsed_seconds: elapsedSeconds(),
+        position_x: eatenFood.x,
+        position_y: eatenFood.y
+      });
     } else {
       eatenCounts.regular[eatenFood.kind] += 1;
       score += 10;
       playMunchSound(false);
+      // Tracks regular gorengan collection without logging every movement step.
+      trackGameEvent("Food Eaten", {
+        food_type: enumValue(foodNames[eatenFood.kind] || `gorengan_${eatenFood.kind + 1}`),
+        score_before: scoreBefore,
+        score_after: score,
+        points_gained: 10,
+        snake_length_before: snakeLengthBefore,
+        snake_length_after: snake.length,
+        elapsed_seconds: elapsedSeconds(),
+        position_x: eatenFood.x,
+        position_y: eatenFood.y
+      });
     }
     scoreEl.textContent = score;
     best = Math.max(best, score);
@@ -286,11 +453,34 @@ function wrapPosition(point) {
 }
 
 function endGame() {
+  const bestScoreLevelAfter = Math.max(getLocalBest(currentDifficulty), score);
+  const bestScoreOverallAfter = Math.max(getOverallBest(), score);
   running = false;
   gameOver = true;
   stopCircusMusic();
   playGameOverSound(false);
   draw();
+  if (!gameOverEventTracked) {
+    gameOverEventTracked = true;
+    // The value moment: one complete run ended and can be evaluated.
+    trackGameEvent("Game Over", {
+      final_score: score,
+      best_score_level_before: bestScoreLevelBeforeRun,
+      best_score_level_after: bestScoreLevelAfter,
+      best_score_overall_before: bestScoreOverallBeforeRun,
+      best_score_overall_after: bestScoreOverallAfter,
+      is_new_best_level: score > bestScoreLevelBeforeRun,
+      is_new_best_overall: score > bestScoreOverallBeforeRun,
+      snake_length: snake.length,
+      elapsed_seconds: elapsedSeconds(),
+      foods_eaten_total: totalFoodsEaten(),
+      special_items_eaten_total: eatenCounts.special,
+      poison_eaten_total: eatenCounts.bad,
+      death_reason: "self_collision",
+      control_method: latestControlMethod,
+      average_score_per_minute: elapsedSeconds() > 0 ? Math.round((score / elapsedSeconds()) * 600) / 10 : 0
+    });
+  }
   handleGameOver(score);
   showOverlay(
     "Yeee cumi, gitu aja kalah lu",
@@ -498,15 +688,34 @@ function renderLeaderboard(level, rows) {
     return;
   }
 
-  rows.forEach((row) => {
+  rows.forEach((row, index) => {
     const item = document.createElement("li");
+    const rank = document.createElement("span");
+    const nameWrap = document.createElement("div");
     const name = document.createElement("strong");
     const points = document.createElement("span");
+    rank.className = "leaderboard-rank";
+    nameWrap.className = "leaderboard-name";
+    points.className = "leaderboard-score";
+    if (index === 0) {
+      item.className = "podium-first";
+      rank.textContent = "♛";
+      rank.setAttribute("aria-label", "Posisi pertama");
+    } else {
+      rank.textContent = `${index + 1}`;
+    }
     name.textContent = row.username;
     points.textContent = row.score;
-    item.append(name, points);
+    nameWrap.append(name);
+    item.append(rank, nameWrap, points);
     list.append(item);
   });
+}
+
+function leaderboardRank(rows) {
+  if (!playerName) return null;
+  const index = rows.findIndex((row) => row.username === playerName);
+  return index >= 0 ? index + 1 : null;
 }
 
 async function fetchLeaderboard(level = currentDifficulty) {
@@ -527,6 +736,15 @@ async function loadLeaderboard() {
     const levels = Object.keys(leaderboardLists);
     const results = await Promise.all(levels.map((level) => fetchLeaderboard(level)));
     levels.forEach((level, index) => renderLeaderboard(level, results[index]));
+    // Leaderboard data finished loading for all three levels.
+    trackGameEvent("Leaderboard Viewed", {
+      selected_level: currentDifficulty,
+      leaderboard_scope: "all_levels",
+      entries_count: results.reduce((sum, rows) => sum + rows.length, 0),
+      player_rank_easy: leaderboardRank(results[levels.indexOf("easy")]),
+      player_rank_medium: leaderboardRank(results[levels.indexOf("medium")]),
+      player_rank_hard: leaderboardRank(results[levels.indexOf("hard")])
+    });
     setSyncStatus("Leaderboard synced.");
   } catch (error) {
     Object.keys(leaderboardLists).forEach((level) => renderLeaderboard(level, []));
@@ -567,6 +785,8 @@ async function resetRemoteData() {
 
   const password = prompt("Password admin");
   if (password === null) return;
+  const previousEntriesCount = Object.values(leaderboardLists).reduce((sum, list) => sum + list.querySelectorAll("li").length, 0);
+  const previousBestScore = getOverallBest();
 
   try {
     setSyncStatus("Reset data...");
@@ -578,6 +798,12 @@ async function resetRemoteData() {
     best = 0;
     bestEl.textContent = best;
     setSyncStatus("Data leaderboard direset.");
+    // Admin reset succeeded and cleared leaderboard state.
+    trackGameEvent("Leaderboard Data Reset", {
+      reset_scope: "all_levels",
+      previous_best_score: previousBestScore,
+      previous_entries_count: previousEntriesCount
+    });
     loadLeaderboard();
   } catch (error) {
     setSyncStatus("Password salah atau reset gagal.");
@@ -616,6 +842,7 @@ function setPlayerName(value, level = currentDifficulty) {
   localStorage.setItem("hasan-frenzy-level", currentDifficulty);
   playerNameDisplay.textContent = playerName;
   hidePlayerModal();
+  identifyPlayer();
   resetGame();
   loadLeaderboard();
   return true;
@@ -668,7 +895,7 @@ function spawnFood(type = "regular") {
   return next;
 }
 
-function setDirection(name) {
+function setDirection(name, controlMethod = "unknown") {
   const next = {
     up: { x: 0, y: -1 },
     down: { x: 0, y: 1 },
@@ -677,6 +904,7 @@ function setDirection(name) {
   }[name];
   if (!next) return;
   if (next.x + direction.x === 0 && next.y + direction.y === 0) return;
+  latestControlMethod = controlMethod;
   queuedDirection = next;
 }
 
@@ -898,7 +1126,7 @@ document.addEventListener("keydown", (event) => {
 
   if (keys[event.key]) {
     event.preventDefault();
-    setDirection(keys[event.key]);
+    setDirection(keys[event.key], "keyboard");
   }
 
   if (event.code === "Space") {
@@ -915,7 +1143,7 @@ function isTypingTarget(target) {
 }
 
 document.querySelectorAll("[data-dir]").forEach((button) => {
-  button.addEventListener("click", () => setDirection(button.dataset.dir));
+  button.addEventListener("click", () => setDirection(button.dataset.dir, "button"));
 });
 
 canvas.addEventListener("pointerdown", (event) => {
@@ -927,20 +1155,36 @@ canvas.addEventListener("pointerup", (event) => {
   const dx = event.clientX - touchStart.x;
   const dy = event.clientY - touchStart.y;
   if (Math.max(Math.abs(dx), Math.abs(dy)) > 24) {
-    setDirection(Math.abs(dx) > Math.abs(dy) ? (dx > 0 ? "right" : "left") : dy > 0 ? "down" : "up");
+    setDirection(Math.abs(dx) > Math.abs(dy) ? (dx > 0 ? "right" : "left") : dy > 0 ? "down" : "up", "swipe");
   }
   touchStart = null;
 });
 
 difficultySelect.addEventListener("change", (event) => {
+  const previousLevel = currentDifficulty;
   currentDifficulty = event.target.value;
   localStorage.setItem("hasan-frenzy-level", currentDifficulty);
+  // User changed difficulty from the level selector.
+  trackGameEvent("Level Changed", {
+    from_level: previousLevel,
+    to_level: currentDifficulty,
+    current_score: score,
+    game_state: gameState()
+  });
   resetGame();
   loadLeaderboard();
 });
 
 soundButton.addEventListener("click", () => {
-  setSoundEnabled(!soundEnabled);
+  const nextSoundState = !soundEnabled;
+  setSoundEnabled(nextSoundState);
+  // User toggled audio from the controls.
+  trackGameEvent("Sound Toggled", {
+    sound_enabled: nextSoundState,
+    game_state: gameState(),
+    level: currentDifficulty,
+    score
+  });
 });
 
 playerForm.addEventListener("submit", (event) => {
@@ -956,15 +1200,43 @@ startButton.addEventListener("click", () => {
 });
 
 pauseButton.addEventListener("click", togglePause);
-resetButton.addEventListener("click", resetGame);
+resetButton.addEventListener("click", () => {
+  // User manually reset the current board state.
+  trackGameEvent("Game Reset", {
+    level: currentDifficulty,
+    score,
+    game_state: gameState(),
+    elapsed_seconds: elapsedSeconds()
+  });
+  resetGame();
+});
+
+analyticsAccept.addEventListener("click", () => {
+  window.HasanAnalytics?.setConsent(true);
+  analyticsConsent.classList.add("hidden");
+  identifyPlayer();
+  maybeTrackGameOpened();
+});
+
+analyticsDecline.addEventListener("click", () => {
+  window.HasanAnalytics?.setConsent(false);
+  analyticsConsent.classList.add("hidden");
+});
 
 [...foods, specialFoodImage, badFoodImage, ...Object.values(heads)].forEach((img) => {
   img.addEventListener("load", draw, { once: true });
 });
 
+window.HasanAnalytics?.setContextProvider(analyticsContext);
 resetGame();
 difficultySelect.value = currentDifficulty;
 setSoundEnabled(soundEnabled);
 playerNameDisplay.textContent = playerName || "-";
+identifyPlayer();
+if (window.HasanAnalytics?.getConsentState() === "unknown") {
+  analyticsConsent.classList.remove("hidden");
+} else {
+  maybeTrackGameOpened();
+}
 loadLeaderboard();
 ensurePlayerName();
