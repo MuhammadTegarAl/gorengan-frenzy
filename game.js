@@ -32,7 +32,7 @@ const syncStatus = document.querySelector("#syncStatus");
 
 const grid = 18;
 const cell = canvas.width / grid;
-const soundStorageKey = "hasan-frenzy-sound-v2";
+const soundStorageKey = "gorengan-frenzy-sound";
 const difficultyConfig = {
   easy: { label: "Easy", stepMs: 166, minStepMs: 102, speedUp: 2 },
   medium: { label: "Medium", stepMs: 132, minStepMs: 76, speedUp: 3 },
@@ -47,16 +47,16 @@ const foodSources = [
   "./assets/gorengan-6.png"
 ];
 const specialFood = {
-  name: "Satu Usus Pak Hedy",
-  src: "./assets/satu-usus-pak-hedy.png",
+  name: "Sate Usus Spesial",
+  src: "./assets/sate-usus-spesial.png",
   score: 20,
   slowMs: 10000,
   lifeMs: 10000,
   spawnChance: 0.055
 };
 const badFood = {
-  name: "Chiki Kadaluwarsa Ivan",
-  src: "./assets/chiki-kadaluwarsa-ivan.png",
+  name: "Chiki Kadaluwarsa",
+  src: "./assets/chiki-kadaluwarsa.png",
   score: 0,
   fastMs: 5000,
   lifeMs: 15000,
@@ -89,7 +89,7 @@ let direction;
 let queuedDirection;
 let activeFoods;
 let score;
-const savedDifficulty = localStorage.getItem("hasan-frenzy-level");
+const savedDifficulty = localStorage.getItem("gorengan-frenzy-level");
 let currentDifficulty = difficultyConfig[savedDifficulty] ? savedDifficulty : "medium";
 let best = getLocalBest(currentDifficulty);
 let running = false;
@@ -103,7 +103,7 @@ let slowUntil = 0;
 let fastUntil = 0;
 let toastTimeout = null;
 let toastInterval = null;
-let playerName = localStorage.getItem("hasan-frenzy-player") || "";
+let playerName = localStorage.getItem("gorengan-frenzy-player") || "";
 let eatenCounts = createEmptyEatenCounts();
 let audioContext = null;
 let soundEnabled = localStorage.getItem(soundStorageKey) !== "off";
@@ -122,11 +122,11 @@ let bestScoreOverallBeforeRun = getOverallBest();
 bestEl.textContent = best;
 
 function getLocalBest(level) {
-  return Number(localStorage.getItem(`hasan-frenzy-best:${level}`) || 0);
+  return Number(localStorage.getItem(`gorengan-frenzy-best:${level}`) || 0);
 }
 
 function setLocalBest(level, value) {
-  localStorage.setItem(`hasan-frenzy-best:${level}`, String(value));
+  localStorage.setItem(`gorengan-frenzy-best:${level}`, String(value));
 }
 
 function getOverallBest() {
@@ -190,13 +190,13 @@ function analyticsContext() {
 }
 
 function trackGameEvent(eventName, properties = {}) {
-  window.HasanAnalytics?.trackEvent(eventName, properties);
+  window.GorenganAnalytics?.trackEvent(eventName, properties);
 }
 
 function identifyPlayer() {
   if (!playerName) return;
-  const stableId = `hasan_frenzy:${playerName.toLowerCase()}`;
-  window.HasanAnalytics?.identify(stableId, {
+  const stableId = `gorengan_frenzy:${playerName.toLowerCase()}`;
+  window.GorenganAnalytics?.identify(stableId, {
     player_name: playerName,
     preferred_level: currentDifficulty,
     best_score_overall: getOverallBest()
@@ -263,7 +263,7 @@ function resetGame() {
   draw();
   hideGameOverVideo();
   showOverlay(
-    "Hasan lapar.",
+    "Gorengan siap diburu.",
     `Mode ${config.label}. Tembus pinggir, makan gorengan, jangan gigit badan sendiri.`,
     "Start"
   );
@@ -379,7 +379,7 @@ function update() {
       playMunchSound(true);
       // Tracks rare benefit item collection, including how long it stayed available.
       trackGameEvent("Special Item Eaten", {
-        item_type: "sate_usus",
+        item_type: "sate_usus_spesial",
         score_before: scoreBefore,
         score_after: score,
         points_gained: specialFood.score,
@@ -483,7 +483,7 @@ function endGame() {
   }
   handleGameOver(score);
   showOverlay(
-    "Yeee cumi, gitu aja kalah lu",
+    "Game over. Coba lagi, kejar skor lebih tinggi.",
     buildGameOverMessage(score),
     "Main lagi",
     { video: true, podium: false }
@@ -514,7 +514,7 @@ function formatEatenCounts() {
 async function handleGameOver(finalScore) {
   const result = await submitScore(finalScore);
   if (result?.isFirstPlace) {
-    overlayTitle.textContent = "heemm hemm, beuhh gorengan nih. selamat yee posisi 1 sementara";
+    overlayTitle.textContent = "Juara sementara. Posisi 1 leaderboard berhasil direbut.";
     overlayText.textContent = buildGameOverMessage(finalScore);
     showGameOverVideo(true);
     playGameOverSound(true);
@@ -552,12 +552,12 @@ function updateEffectToast(kind) {
   const now = Date.now();
   if (kind === "bad") {
     const remaining = Math.max(0, Math.ceil((fastUntil - now) / 1000));
-    bonusToast.textContent = `Chiki Kadaluwarsa Ivan kemakan. Hasan jadi ngebut 50% selama ${remaining}s. Tahan arah, jangan panik.`;
+    bonusToast.textContent = `Chiki Kadaluwarsa kemakan. Speed jadi naik 50% selama ${remaining}s. Tahan arah, jangan panik.`;
     return;
   }
 
   const remaining = Math.max(0, Math.ceil((slowUntil - now) / 1000));
-  bonusToast.textContent = `Sate Usus Pak Hedy aman. Speed Hasan melambat 50% selama ${remaining}s, jadi lebih gampang belok.`;
+  bonusToast.textContent = `Sate Usus Spesial aktif. Speed melambat 50% selama ${remaining}s, jadi lebih gampang belok.`;
 }
 
 function hideBonusToast() {
@@ -639,7 +639,7 @@ function playGameOverSound(isWinner) {
 }
 
 function getSupabaseConfig() {
-  const config = window.HASAN_SUPABASE_CONFIG || {};
+  const config = window.GORENGAN_SUPABASE_CONFIG || {};
   return {
     url: (config.url || "").replace(/\/$/, ""),
     anonKey: config.anonKey || ""
@@ -720,7 +720,7 @@ function leaderboardRank(rows) {
 
 async function fetchLeaderboard(level = currentDifficulty) {
   return supabaseRequest(
-    `/rest/v1/hasan_frenzy_scores?select=username,score,updated_at&level=eq.${encodeURIComponent(level)}&order=score.desc,updated_at.asc&limit=10`
+    `/rest/v1/gorengan_frenzy_scores?select=username,score,updated_at&level=eq.${encodeURIComponent(level)}&order=score.desc,updated_at.asc&limit=10`
   );
 }
 
@@ -757,7 +757,7 @@ async function submitScore(finalScore) {
 
   try {
     setSyncStatus("Nyimpen skor...");
-    await supabaseRequest("/rest/v1/rpc/submit_hasan_frenzy_score", {
+    await supabaseRequest("/rest/v1/rpc/submit_gorengan_frenzy_score", {
       method: "POST",
       body: JSON.stringify({
         p_username: playerName,
@@ -790,7 +790,7 @@ async function resetRemoteData() {
 
   try {
     setSyncStatus("Reset data...");
-    await supabaseRequest("/rest/v1/rpc/reset_hasan_frenzy_scores", {
+    await supabaseRequest("/rest/v1/rpc/reset_gorengan_frenzy_scores", {
       method: "POST",
       body: JSON.stringify({ p_password: password })
     });
@@ -838,8 +838,8 @@ function setPlayerName(value, level = currentDifficulty) {
     currentDifficulty = level;
     difficultySelect.value = level;
   }
-  localStorage.setItem("hasan-frenzy-player", playerName);
-  localStorage.setItem("hasan-frenzy-level", currentDifficulty);
+  localStorage.setItem("gorengan-frenzy-player", playerName);
+  localStorage.setItem("gorengan-frenzy-level", currentDifficulty);
   playerNameDisplay.textContent = playerName;
   hidePlayerModal();
   identifyPlayer();
@@ -1163,7 +1163,7 @@ canvas.addEventListener("pointerup", (event) => {
 difficultySelect.addEventListener("change", (event) => {
   const previousLevel = currentDifficulty;
   currentDifficulty = event.target.value;
-  localStorage.setItem("hasan-frenzy-level", currentDifficulty);
+  localStorage.setItem("gorengan-frenzy-level", currentDifficulty);
   // User changed difficulty from the level selector.
   trackGameEvent("Level Changed", {
     from_level: previousLevel,
@@ -1212,14 +1212,14 @@ resetButton.addEventListener("click", () => {
 });
 
 analyticsAccept.addEventListener("click", () => {
-  window.HasanAnalytics?.setConsent(true);
+  window.GorenganAnalytics?.setConsent(true);
   analyticsConsent.classList.add("hidden");
   identifyPlayer();
   maybeTrackGameOpened();
 });
 
 analyticsDecline.addEventListener("click", () => {
-  window.HasanAnalytics?.setConsent(false);
+  window.GorenganAnalytics?.setConsent(false);
   analyticsConsent.classList.add("hidden");
 });
 
@@ -1227,13 +1227,13 @@ analyticsDecline.addEventListener("click", () => {
   img.addEventListener("load", draw, { once: true });
 });
 
-window.HasanAnalytics?.setContextProvider(analyticsContext);
+window.GorenganAnalytics?.setContextProvider(analyticsContext);
 resetGame();
 difficultySelect.value = currentDifficulty;
 setSoundEnabled(soundEnabled);
 playerNameDisplay.textContent = playerName || "-";
 identifyPlayer();
-if (window.HasanAnalytics?.getConsentState() === "unknown") {
+if (window.GorenganAnalytics?.getConsentState() === "unknown") {
   analyticsConsent.classList.remove("hidden");
 } else {
   maybeTrackGameOpened();

@@ -3,7 +3,7 @@
   <head>
     <meta charset="utf-8">
     <meta name="viewport" content="width=device-width, initial-scale=1">
-    <title>Hasan Frenzy</title>
+    <title>Gorengan Frenzy</title>
     <link rel="icon" type="image/png" href="./assets/favicon.png">
     <link rel="apple-touch-icon" href="./assets/favicon.png">
     <link rel="stylesheet" href="./styles.css">
@@ -17,11 +17,11 @@
   </head>
   <body>
     <main class="shell">
-      <section class="game-panel" aria-label="Hasan Frenzy game">
+      <section class="game-panel" aria-label="Gorengan Frenzy game">
         <div class="hud">
           <div>
             <p class="eyebrow">Snake gorengan</p>
-            <h1>Hasan Frenzy</h1>
+            <h1>Gorengan Frenzy</h1>
           </div>
           <div class="stats" aria-label="Game stats">
             <div>
@@ -38,14 +38,14 @@
         <div id="bonusToast" class="bonus-toast hidden">Power-up aktif.</div>
 
         <div class="board-wrap">
-          <canvas id="game" width="720" height="720" aria-label="Hasan Frenzy board"></canvas>
+          <canvas id="game" width="720" height="720" aria-label="Gorengan Frenzy board"></canvas>
           <div id="overlay" class="overlay">
             <div id="gameOverVideoFrame" class="game-over-video hidden" aria-hidden="true">
               <video id="gameOverVideo" muted loop playsinline preload="metadata">
                 <source id="gameOverVideoSource" src="./assets/game-over-cry.mp4" type="video/mp4">
               </video>
             </div>
-            <h2 id="overlayTitle">Hasan lapar.</h2>
+            <h2 id="overlayTitle">Gorengan siap diburu.</h2>
             <p id="overlayText">Tekan Start atau Space buat mulai ngejar gorengan.</p>
             <button id="startButton" class="primary">Start</button>
           </div>
@@ -131,7 +131,7 @@
       </div>
 
       <section id="analyticsConsent" class="consent-bar hidden" aria-label="Analytics consent">
-        <p>Izinin analytics buat bantu ngukur gameplay Hasan Frenzy?</p>
+        <p>Izinin analytics buat bantu ngukur gameplay Gorengan Frenzy?</p>
         <div>
           <button id="analyticsDecline" type="button">Nanti aja</button>
           <button id="analyticsAccept" class="primary" type="button">Boleh</button>
@@ -139,13 +139,13 @@
       </section>
     </main>
     <script>
-      window.HASAN_ANALYTICS_CONFIG = {
+      window.GORENGAN_ANALYTICS_CONFIG = {
         mixpanelToken: "ccea2d345622b54b91d3b4b1f8c2710f",
         appVersion: "1.1.0"
       };
     </script>
     <script src="./supabase-config.js?v=1"></script>
-    <script src="./analytics.js?v=3"></script>
-    <script src="./game.js?v=12"></script>
+    <script src="./analytics.js?v=4"></script>
+    <script src="./game.js?v=13"></script>
   </body>
 </html>

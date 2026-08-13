@@ -1,7 +1,7 @@
 (function () {
-  const config = window.HASAN_ANALYTICS_CONFIG || {};
+  const config = window.GORENGAN_ANALYTICS_CONFIG || {};
   const token = config.mixpanelToken || window.MIXPANEL_TOKEN || "";
-  const consentKey = "hasan-frenzy-analytics-consent";
+  const consentKey = "gorengan-frenzy-analytics-consent";
   const isDev = ["localhost", "127.0.0.1", ""].includes(window.location.hostname);
   let initialized = false;
   let loading = false;
@@ -107,7 +107,7 @@
 
   function sharedProperties() {
     return {
-      game_name: "Hasan Frenzy",
+      game_name: "Gorengan Frenzy",
       app_version: config.appVersion || "1.0.0",
       device_type: deviceType(),
       viewport_width: window.innerWidth,
@@ -140,7 +140,7 @@
       window.mixpanel.identify(userId);
       window.mixpanel.people.set({
         ...profile,
-        game_name: "Hasan Frenzy",
+        game_name: "Gorengan Frenzy",
         last_seen_at: new Date().toISOString()
       });
     } catch (error) {
@@ -148,7 +148,7 @@
     }
   }
 
-  window.HasanAnalytics = {
+  window.GorenganAnalytics = {
     init,
     setConsent,
     hasConsent,

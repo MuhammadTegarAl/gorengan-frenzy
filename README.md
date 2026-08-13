@@ -1,6 +1,6 @@
-# Hasan Frenzy
+# Gorengan Frenzy
 
-Static snake-style browser game with gorengan pickups and directional Hasan face sprites.
+Static snake-style browser game with gorengan pickups, special timed items, leaderboard, and product analytics.
 
 ## Local Preview
 
@@ -12,9 +12,9 @@ Open `http://127.0.0.1:8765`.
 
 ## Deploy With GitHub + Vercel
 
-1. Create a new GitHub repo, for example `hasan-frenzy`.
+1. Create or rename the GitHub repo to `gorengan-frenzy`.
 2. Push this folder to that repo.
-3. In Vercel, choose **Add New Project**.
+3. In Vercel, choose **Add New Project** or rename the existing project to `gorengan-frenzy`.
 4. Import the GitHub repo.
 5. Keep the framework preset as **Other**.
 6. Leave build command empty.
@@ -31,7 +31,7 @@ Entry file: `index.html`
 4. Put them in `supabase-config.js`.
 
 ```js
-window.HASAN_SUPABASE_CONFIG = {
+window.GORENGAN_SUPABASE_CONFIG = {
   url: "https://YOUR_PROJECT.supabase.co",
   anonKey: "YOUR_ANON_PUBLIC_KEY"
 };
@@ -40,5 +40,5 @@ window.HASAN_SUPABASE_CONFIG = {
 The leaderboard stores one best score per `username + level`. The admin reset button calls a Supabase RPC and requires this password:
 
 ```text
-H4sanFrenzy
+GorenganFrenzy
 ```

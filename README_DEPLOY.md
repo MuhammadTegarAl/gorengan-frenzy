@@ -1,4 +1,4 @@
-# Hasan Frenzy
+# Gorengan Frenzy
 
 Static browser game. No build step required.
 

@@ -11,7 +11,7 @@ This project uses Mixpanel for product analytics. Do not add another product ana
 | Tracking method | Direct client-side SDK |
 | CDP | None |
 | Consent required | Yes, California-safe consent gate before SDK initialization |
-| Token location | `index.html` -> `window.HASAN_ANALYTICS_CONFIG.mixpanelToken` |
+| Token location | `index.html` -> `window.GORENGAN_ANALYTICS_CONFIG.mixpanelToken` |
 | Analytics helper | `analytics.js` |
 | Game tracking calls | `game.js` |
 
@@ -19,7 +19,7 @@ This project uses Mixpanel for product analytics. Do not add another product ana
 
 Mixpanel is initialized only in `analytics.js`. The SDK is not loaded until the player grants consent through the analytics consent bar.
 
-Use `trackGameEvent(...)` in `game.js`, which delegates to `window.HasanAnalytics.trackEvent(...)`. Do not call `window.mixpanel.track(...)` directly from gameplay code.
+Use `trackGameEvent(...)` in `game.js`, which delegates to `window.GorenganAnalytics.trackEvent(...)`. Do not call `window.mixpanel.track(...)` directly from gameplay code.
 
 ## Identity
 
@@ -27,7 +27,7 @@ The game identifies a player after a username is saved:
 
 | Action | Code location |
 |---|---|
-| `identify()` with `hasan_frenzy:${playerName.toLowerCase()}` | `game.js` -> `identifyPlayer()` |
+| `identify()` with `gorengan_frenzy:${playerName.toLowerCase()}` | `game.js` -> `identifyPlayer()` |
 | Profile update with player name and preferred level | `game.js` -> `identifyPlayer()` |
 
 There is no logout flow in this game. If a logout or switch-user flow is added later, call `mixpanel.reset()` through the analytics helper before identifying a different player.
@@ -63,9 +63,9 @@ Event names follow the user-provided tracking spec. Property names use `snake_ca
 | `Game Started` | A new playable run starts | `starting_score`, `best_score_level`, `control_method`, `board_size`, `snake_initial_length` | `game.js` |
 | `Game Paused` | User manually pauses | `snake_length`, `elapsed_seconds`, food counters, `reason` | `game.js` |
 | `Game Resumed` | User resumes after pause | `pause_duration_seconds`, `elapsed_seconds`, `snake_length` | `game.js` |
-| `Food Eaten` | Hasan eats regular gorengan | `food_type`, before/after score, before/after snake length, position | `game.js` |
-| `Special Item Eaten` | Hasan eats `sate_usus` | `item_type`, before/after score, `spawn_duration_seconds`, position | `game.js` |
-| `Poison Eaten` | Hasan eats `chiki_kadaluwarsa` | `poison_type`, `penalty_type`, before/after score, position | `game.js` |
+| `Food Eaten` | Player collects regular gorengan | `food_type`, before/after score, before/after snake length, position | `game.js` |
+| `Special Item Eaten` | Player collects `sate_usus_spesial` | `item_type`, before/after score, `spawn_duration_seconds`, position | `game.js` |
+| `Poison Eaten` | Player collects `chiki_kadaluwarsa` | `poison_type`, `penalty_type`, before/after score, position | `game.js` |
 | `Game Over` | Run ends; this is the value moment | final score, best score before/after, counters, `death_reason`, `average_score_per_minute` | `game.js` |
 | `Level Changed` | User changes difficulty | `from_level`, `to_level`, `current_score`, `game_state` | `game.js` |
 | `Sound Toggled` | User toggles sound | `sound_enabled`, `game_state`, `level`, `score` | `game.js` |
